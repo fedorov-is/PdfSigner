@@ -65,7 +65,7 @@ test('custom dropdowns support keyboard, dismissal and certificate updates', asy
   await page.goto('/');
   await page.locator('#file').setInputFiles(upload());
   await expect(page.locator('#status')).toContainText('Preview ready');
-  await expect(page.getByRole('combobox', { name: /Available certificates/ })).toBeDisabled();
+  await expect(page.getByRole('combobox', { name: /Available certificates/ })).toBeEnabled();
   const zoom = page.getByRole('combobox', { name: /Zoom/ });
   await zoom.click();
   await page.getByRole('option', { name: '150%', exact: true }).click();
@@ -89,7 +89,7 @@ test('custom dropdowns support keyboard, dismissal and certificate updates', asy
   await format.click();
   await page.locator('h1').click();
   await expect(format).toHaveAttribute('aria-expanded', 'false');
-  await page.locator('#connect').click();
+  await expect(page.locator('#connect')).toBeEnabled();
   const certificate = page.getByRole('combobox', { name: /Available certificates/ });
   await expect(certificate).toBeEnabled();
   await expect(certificate).toHaveText('Test signer');
@@ -157,7 +157,7 @@ test('validation, page limit, replacement and drop', async ({ page }) => {
 async function mockCryptoPro(page: import('@playwright/test').Page, mode = 'success') {
   await page.route('**/vendor/cadesplugin_api.js', route => route.fulfill({ contentType: 'application/javascript', body: `
     const cert = { HasPrivateKey: async () => true, ValidFromDate: '2020-01-01', ValidToDate: '2100-01-01', Thumbprint: 'test', SubjectName: 'Test signer', IssuerName: 'Test issuer', SerialNumber: '01', PublicKey: async () => ({ Algorithm: { Value: 'test-oid' } }) };
-    const collection = { Count: 1, Item: async () => cert, Find: async () => collection };
+    const collection = { Count: '${mode}' === 'empty' ? 0 : 1, Item: async () => cert, Find: async () => collection };
     globalThis.cadesplugin = { CreateObjectAsync: async name => {
       if (name === 'CAdESCOM.About') return { PluginVersion: 'test', CSPVersion: async () => 'test' };
       if (name === 'CAdESCOM.Store') return { Open: async () => {}, Close: async () => {}, Certificates: collection };
@@ -170,11 +170,31 @@ async function mockCryptoPro(page: import('@playwright/test').Page, mode = 'succ
   ` }));
 }
 
+test('automatic readiness shows missing certificates and hides after a successful retry', async ({ page }) => {
+  await mockCryptoPro(page, 'empty');
+  await page.goto('/');
+  await expect(page.locator('#readiness')).toBeVisible();
+  await expect(page.locator('#readiness-status')).toContainText('0 time-valid certificate(s)');
+  await page.evaluate(() => {
+    const plugin = (window as unknown as { cadesplugin: { CreateObjectAsync: (name: string) => Promise<unknown> } }).cadesplugin;
+    const create = plugin.CreateObjectAsync;
+    plugin.CreateObjectAsync = async name => {
+      const result = await create(name);
+      if (name === 'CAdESCOM.Store') (result as { Certificates: { Count: number } }).Certificates.Count = 1;
+      return result;
+    };
+  });
+  await page.locator('#connect').click();
+  await expect(page.locator('#readiness')).toBeHidden();
+  await expect(page.locator('#readiness-status')).toContainText('1 time-valid certificate(s)');
+});
+
 test('detached signing downloads exact PDF and decoded signature, then clears results', async ({ page }) => {
   await mockCryptoPro(page);
   await page.goto('/');
-  await page.locator('#connect').click();
+  await expect(page.locator('#connect')).toBeEnabled();
   await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+  await expect(page.locator('#readiness')).toBeHidden();
   await page.locator('#file').setInputFiles(upload());
   await expect(page.locator('#sign')).toBeEnabled();
   await page.locator('#sign').click();
@@ -199,7 +219,7 @@ test('release policy blocks external connections and permits local PDF downloads
     try { await fetch('https://example.com/document-upload', { method: 'POST', body: 'blocked' }); return false; }
     catch { return true; }
   })).toBe(true);
-  await page.locator('#connect').click();
+  await expect(page.locator('#connect')).toBeEnabled();
   await page.locator('#file').setInputFiles({ ...upload(), name: 'Документ.pdf' });
   await expect(page.locator('#sign')).toBeEnabled();
   await page.locator('#sign').click();
@@ -226,8 +246,9 @@ test('release policy blocks external connections and permits local PDF downloads
 test('missing native API keeps preview available and signing disabled', async ({ page }) => {
   await page.route('**/vendor/cadesplugin_api.js', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
   await page.goto('/');
-  await page.locator('#connect').click();
+  await expect(page.locator('#connect')).toBeEnabled();
   await expect(page.locator('#readiness-status')).toContainText('CryptoPro unavailable');
+  await expect(page.locator('#readiness')).toBeVisible();
   await page.locator('#file').setInputFiles(upload());
   await expect(page.locator('#status')).toContainText('Preview ready');
   await expect(page.locator('#sign')).toBeDisabled();
@@ -237,8 +258,9 @@ for (const mode of ['failure', 'pending']) {
   test('detached signing ' + mode + ' exposes no downloads', async ({ page }) => {
     await mockCryptoPro(page, mode);
     await page.goto('/');
-    await page.locator('#connect').click();
+    await expect(page.locator('#connect')).toBeEnabled();
     await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+  await expect(page.locator('#readiness')).toBeHidden();
     await page.locator('#file').setInputFiles(upload());
     await expect(page.locator('#sign')).toBeEnabled();
     await page.locator('#sign').click();
@@ -356,8 +378,9 @@ test('undersized stamp stays editable and can be enlarged again', async ({ page 
 
 test('stamped detached output signs exported bytes and edits invalidate results', async ({ page }) => {
   await mockCryptoPro(page);
-  await page.goto('/'); await page.locator('#connect').click();
+  await page.goto('/'); await expect(page.locator('#connect')).toBeEnabled();
   await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+  await expect(page.locator('#readiness')).toBeHidden();
   await page.locator('#file').setInputFiles(upload());
   await expect(page.locator('#status')).toContainText('Preview ready');
   await page.locator('#stamp-enabled').check();
@@ -384,8 +407,9 @@ test('stamped detached output signs exported bytes and edits invalidate results'
 for (const stamp of [false, true]) {
   test('embedded PDF download with stamp ' + stamp, async ({ page }) => {
     await mockCryptoPro(page, 'embedded');
-    await page.goto('/'); await page.locator('#connect').click();
+    await page.goto('/'); await expect(page.locator('#connect')).toBeEnabled();
     await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+  await expect(page.locator('#readiness')).toBeHidden();
     await page.locator('#file').setInputFiles(upload());
     await expect(page.locator('#sign')).toBeEnabled();
     if (stamp) {

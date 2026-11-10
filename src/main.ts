@@ -219,9 +219,10 @@ certificates.addEventListener('change', () => {
   el('certificate-details').textContent = cert ? `${ownerName(cert.subject)}. Valid: ${new Date(cert.validFrom).toLocaleDateString()} – ${new Date(cert.validTo).toLocaleDateString()}.` : '';
   void previewStamp();
 });
-el('connect').addEventListener('click', async () => {
+async function checkCryptoPro() {
   if (connecting || signing) return;
   connecting = true;
+  el('readiness').hidden = true;
   const button = el<HTMLButtonElement>('connect');
   button.disabled = true;
   invalidateSigning();
@@ -249,11 +250,15 @@ el('connect').addEventListener('click', async () => {
     certificates.dispatchEvent(new Event('change'));
     el('readiness-status').textContent = `Plug-in ${connected.pluginVersion}; CSP ${connected.cspVersion}. ${available.length} time-valid certificate(s) with private keys. Key access is confirmed only by signing.`;
     if (!available.length) certificates.add(new Option('No time-valid certificates with private keys found'));
+    el('readiness').hidden = available.length > 0;
   } catch (error) {
+    adapter = undefined;
+    el('readiness').hidden = false;
     el('readiness-status').textContent = `CryptoPro unavailable: ${error instanceof Error ? error.message : String(error)}. Check CSP, Browser plug-in and extension installation. Preview remains available.`;
     certificates.add(new Option('CryptoPro unavailable'));
   } finally { connecting = false; button.disabled = false; signingControls(); }
-});
+}
+el('connect').addEventListener('click', () => { void checkCryptoPro(); });
 el('sign').addEventListener('click', async () => {
   if (!source || !adapter || signing) return;
   discardResult();
@@ -450,3 +455,4 @@ overlay.addEventListener('keydown', event => {
 window.addEventListener('pagehide', () => { void clear(); });
 enhanceDropdowns();
 controls();
+void checkCryptoPro();
