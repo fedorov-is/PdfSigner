@@ -25,6 +25,8 @@ input,select { color:var(--fg); background:var(--card); border:1px solid var(--b
 .dropdown-check { position:absolute; right:8px; color:var(--accent); }
 .dropdown-option[aria-disabled="true"] { opacity:.5; cursor:default; }
 .toolbar .dropdown { min-width:110px; }
+.dropdown:has(#language) { min-width:120px; flex-shrink:0; }
+#language-trigger, #language-menu .dropdown-option { white-space:nowrap; overflow-wrap:normal; }
 #page-surface { position:relative; width:max-content; margin:auto; } #page-surface > canvas { margin:0; }
 #stamp-overlay { position:absolute; touch-action:none; cursor:move; outline:2px dashed var(--accent); outline-offset:2px; } #stamp-preview { background:transparent; width:100%; height:100%; box-shadow:none; pointer-events:none; }
 #stamp-resize { position:absolute; right:-5px; bottom:-5px; width:14px; height:14px; padding:0; border-radius:2px; cursor:nwse-resize; touch-action:none; }
