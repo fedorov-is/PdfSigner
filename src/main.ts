@@ -1,6 +1,7 @@
 import { getDocument, GlobalWorkerOptions, type PDFDocumentLoadingTask, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { CryptoPro } from './cryptopro.js';
+import { createDetached, deadline } from './detached.js';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 const el = <T extends HTMLElement>(id: string) => window.document.getElementById(id) as T;
@@ -16,6 +17,28 @@ let render: RenderTask | undefined;
 let generation = 0;
 let rendering = 0;
 let page = 1;
+let source: { bytes: Uint8Array; name: string } | undefined;
+let adapter: CryptoPro | undefined;
+let signing = false;
+let signingRun = 0;
+const downloads: string[] = [];
+function discardResult() {
+  downloads.forEach(url => URL.revokeObjectURL(url));
+  downloads.length = 0;
+  el('downloads').replaceChildren();
+}
+function signingControls() {
+  el<HTMLButtonElement>('sign').disabled = signing || !source || !adapter || certificates.disabled;
+  el<HTMLButtonElement>('cancel-sign').hidden = !signing;
+  el<HTMLButtonElement>('connect').disabled = signing;
+}
+function invalidateSigning() {
+  signingRun++;
+  signing = false;
+  discardResult();
+  el('signing-status').textContent = '';
+  signingControls();
+}
 const MAX_BYTES = 20 * 1024 * 1024;
 const MAX_PAGES = 500;
 const MAX_PIXELS = 8_000_000;
@@ -42,6 +65,8 @@ function controls() {
   el<HTMLButtonElement>('next').disabled = !document || page >= document.numPages;
 }
 async function clear() {
+  source = undefined;
+  invalidateSigning();
   generation++;
   rendering++;
   render?.cancel();
@@ -104,14 +129,21 @@ async function open(file: File) {
     if (id !== generation) return;
     if (!new TextDecoder().decode(bytes.subarray(0, 1024)).includes('%PDF-')) throw new Error('This file does not have a PDF header.');
     const assets = `${import.meta.env.BASE_URL}pdfjs/`;
-    const task = getDocument({ data: bytes, cMapUrl: `${assets}cmaps/`, cMapPacked: true, standardFontDataUrl: `${assets}standard_fonts/`, wasmUrl: `${assets}wasm/` });
+    const task = getDocument({ data: bytes.slice(), cMapUrl: `${assets}cmaps/`, cMapPacked: true, standardFontDataUrl: `${assets}standard_fonts/`, wasmUrl: `${assets}wasm/` });
     loading = task;
     // Encrypted documents are deliberately unsupported in this milestone.
     task.onPassword = () => { if (id === generation) { void clear(); status('Password-protected PDFs are not supported. Open an unencrypted copy.', true); } };
     const pdf = await task.promise;
     if (id !== generation) return;
     if (pdf.numPages > MAX_PAGES) throw new Error('This PDF exceeds the 500-page preview limit.');
+    const fields = await pdf.getFieldObjects();
+    if (id !== generation) return;
+    const signed = Object.values(fields ?? {}).flat().some(field => field.type === 'Sig');
+    if (signed || /\/ByteRange\s*\[|\/FT\s*\/Sig\b/.test(new TextDecoder('latin1').decode(bytes))) {
+      el('signing-status').textContent = 'Existing signature detected. Signing this PDF is not supported yet.';
+    } else source = { bytes, name: file.name };
     document = pdf;
+    signingControls();
     el('filename').textContent = file.name;
     el('file-size').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MiB`;
     el('total-pages').textContent = String(pdf.numPages);
@@ -152,39 +184,72 @@ drop.addEventListener('drop', event => {
   else status('Drop one PDF at a time.', true);
 });
 const certificates = el<HTMLSelectElement>('certificate');
-let available: { thumbprint: string; subject: string; issuer: string; validTo: string; algorithm: string }[] = [];
+let available: { thumbprint: string; subject: string; issuer: string; validFrom: string; validTo: string; serial: string; algorithm: string }[] = [];
 certificates.addEventListener('change', () => {
+  invalidateSigning();
   const cert = available.find(item => item.thumbprint === certificates.value);
-  el('certificate-details').textContent = cert ? `Issuer: ${cert.issuer}. Valid until ${new Date(cert.validTo).toLocaleDateString()}. Key algorithm: ${cert.algorithm}.` : '';
+  el('certificate-details').textContent = cert ? `Issuer: ${cert.issuer}. Serial: ${cert.serial}. Valid from ${new Date(cert.validFrom).toLocaleDateString()} until ${new Date(cert.validTo).toLocaleDateString()}. Key algorithm: ${cert.algorithm}.` : '';
 });
 el('connect').addEventListener('click', async () => {
   const button = el<HTMLButtonElement>('connect');
   button.disabled = true;
+  invalidateSigning();
+  adapter = undefined;
   available = []; certificates.replaceChildren(); certificates.disabled = true;
   el('certificate-details').textContent = '';
   el('readiness-status').textContent = 'Checking bridge and native API… Complete any CryptoPro access dialogs.';
   try {
     if (!window.document.querySelector('script[data-cryptopro]')) {
-      await new Promise<void>((resolve, reject) => {
+      await deadline(() => new Promise<void>((resolve, reject) => {
         const script = window.document.createElement('script');
         script.dataset.cryptopro = 'true';
         script.src = `${import.meta.env.BASE_URL}vendor/cadesplugin_api.js`;
         script.onload = () => resolve();
         script.onerror = () => { script.remove(); reject(new Error('Could not load the local CryptoPro bridge')); };
         window.document.head.append(script);
-      });
+      }), 20000);
     }
-    const adapter = await CryptoPro.connect();
-    available = await adapter.certificates();
+    const connected = await CryptoPro.connect();
+    adapter = connected;
+    available = await connected.certificates();
     for (const cert of available) certificates.add(new Option(cert.subject, cert.thumbprint));
     certificates.disabled = !available.length;
     certificates.dispatchEvent(new Event('change'));
-    el('readiness-status').textContent = `Plug-in ${adapter.pluginVersion}; CSP ${adapter.cspVersion}. ${available.length} time-valid certificate(s) with private keys. Key access is confirmed only by signing.`;
-    if (!available.length) certificates.add(new Option('No eligible certificates found'));
+    el('readiness-status').textContent = `Plug-in ${connected.pluginVersion}; CSP ${connected.cspVersion}. ${available.length} time-valid certificate(s) with private keys. Key access is confirmed only by signing.`;
+    if (!available.length) certificates.add(new Option('No time-valid certificates with private keys found'));
   } catch (error) {
     el('readiness-status').textContent = `CryptoPro unavailable: ${error instanceof Error ? error.message : String(error)}. Check CSP, Browser plug-in and extension installation. Preview remains available.`;
     certificates.add(new Option('CryptoPro unavailable'));
-  } finally { button.disabled = false; }
+  } finally { button.disabled = false; signingControls(); }
+});
+el('sign').addEventListener('click', async () => {
+  if (!source || !adapter || signing) return;
+  discardResult();
+  const current = source, selected = certificates.value, active = adapter;
+  const run = ++signingRun;
+  signing = true;
+  signingControls();
+  el('signing-status').textContent = 'Signing and verifying. Complete CryptoPro access or PIN dialogs.';
+  try {
+    const result = await deadline(() => createDetached(active, current.bytes, selected));
+    if (run !== signingRun) return;
+    for (const [bytes, name, type] of [[result.pdf, current.name, 'application/pdf'], [result.signature, current.name + '.sig', 'application/pkcs7-signature']] as const) {
+      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
+      downloads.push(url);
+      const link = window.document.createElement('a');
+      link.href = url; link.download = name; link.textContent = 'Download ' + name;
+      el('downloads').append(link, window.document.createElement('br'));
+    }
+    el('signing-status').textContent = 'Detached CAdES-BES verified by CryptoPro; changed-byte check rejected. Keep both files together. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.';
+  } catch (error) {
+    if (run !== signingRun) return;
+    discardResult();
+    el('signing-status').textContent = 'Signing failed: ' + (error instanceof Error ? error.message : String(error)) + '. Check certificate validity, private-key access and token connection. If access was denied or cancelled, retry explicitly. No result is available.';
+  } finally { if (run === signingRun) { signing = false; signingControls(); } }
+});
+el('cancel-sign').addEventListener('click', () => {
+  invalidateSigning();
+  el('signing-status').textContent = 'Cancelled. No result is available. Dismiss any CryptoPro dialog; the browser cannot cancel a native operation already in progress.';
 });
 window.addEventListener('pagehide', () => { void clear(); });
 controls();

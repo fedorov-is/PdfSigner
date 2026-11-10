@@ -72,3 +72,54 @@ test('validation, page limit, replacement and drop', async ({ page }) => {
   await page.locator('#file').setInputFiles(upload(1));
   await expect(page.locator('#status')).toHaveText('Page 1 of 1. Preview ready.');
 });
+
+async function mockCryptoPro(page: import('@playwright/test').Page, mode = 'success') {
+  await page.route('**/vendor/cadesplugin_api.js', route => route.fulfill({ contentType: 'application/javascript', body: `
+    const cert = { HasPrivateKey: async () => true, ValidFromDate: '2020-01-01', ValidToDate: '2100-01-01', Thumbprint: 'test', SubjectName: 'Test signer', IssuerName: 'Test issuer', SerialNumber: '01', PublicKey: async () => ({ Algorithm: { Value: 'test-oid' } }) };
+    const collection = { Count: 1, Item: async () => cert, Find: async () => collection };
+    globalThis.cadesplugin = { CreateObjectAsync: async name => {
+      if (name === 'CAdESCOM.About') return { PluginVersion: 'test', CSPVersion: async () => 'test' };
+      if (name === 'CAdESCOM.Store') return { Open: async () => {}, Close: async () => {}, Certificates: collection };
+      if (name === 'CAdESCOM.CPSigner') return { propset_Certificate: async () => {}, propset_Options: async () => {} };
+      let content;
+      return { propset_ContentEncoding: async () => {}, propset_Content: async value => { content = value; },
+        SignCades: async () => { if ('${mode}' === 'failure') throw new Error('Access denied'); if ('${mode}' === 'pending') await new Promise(() => {}); return content; },
+        VerifyCades: async signature => { if (content !== signature) throw new Error('Changed content'); } };
+    } };
+  ` }));
+}
+
+test('detached signing downloads exact PDF and decoded signature, then clears results', async ({ page }) => {
+  await mockCryptoPro(page);
+  await page.goto('/');
+  await page.locator('#connect').click();
+  await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+  await page.locator('#file').setInputFiles(upload());
+  await expect(page.locator('#sign')).toBeEnabled();
+  await page.locator('#sign').click();
+  await expect(page.locator('#signing-status')).toContainText('changed-byte check rejected');
+  const links = page.locator('#downloads a');
+  await expect(links).toHaveCount(2);
+  for (const link of await links.all()) {
+    const bytes = await link.evaluate(async (a: HTMLAnchorElement) => Array.from(new Uint8Array(await (await fetch(a.href)).arrayBuffer())));
+    expect(Buffer.from(bytes)).toEqual(pdf());
+  }
+  await expect(links.nth(1)).toHaveAttribute('download', 'Preview.pdf.sig');
+  await page.locator('#reset').click();
+  await expect(links).toHaveCount(0);
+});
+
+for (const mode of ['failure', 'pending']) {
+  test('detached signing ' + mode + ' exposes no downloads', async ({ page }) => {
+    await mockCryptoPro(page, mode);
+    await page.goto('/');
+    await page.locator('#connect').click();
+    await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+    await page.locator('#file').setInputFiles(upload());
+    await expect(page.locator('#sign')).toBeEnabled();
+    await page.locator('#sign').click();
+    if (mode === 'pending') await page.locator('#cancel-sign').click();
+    await expect(page.locator('#signing-status')).toContainText(mode === 'pending' ? 'Cancelled' : 'Signing failed');
+    await expect(page.locator('#downloads a')).toHaveCount(0);
+  });
+}

@@ -8,7 +8,7 @@ A planned static web application for signing PDF files in the browser using **Cr
 
 Use Node.js 22.13+ (24 recommended). Run `npm.cmd ci` first. The official CryptoPro JavaScript bridge is included at `vendor/cadesplugin_api.js` (JS module version 2.4.5); native CryptoPro components and the browser extension must also be installed. Run `npm.cmd test` and `npm.cmd run dev` on Windows, then open `http://127.0.0.1:5173`. Run `npm.cmd run build` for static output in `dist/`, `npm.cmd run lint` for linting, and `npm.cmd run test:e2e` for Chrome preview checks after building. On other systems use `npm test` and `npm run dev`.
 
-The main page previews PDFs; open **Signing lab** (`lab.html`) for the preserved feasibility harness. The local harness checks native API readiness, lists certificates, signs/verifies exact PDF bytes, and assembles an embedded signature in a generated fixture. See [the feasibility report](docs/feasibility.md) for the successful user test, observed versions, format decisions, dependency evaluation and reproducible verification steps. Exact browser/certificate/verifier details still need to be recorded before publishing a broader compatibility matrix or claiming a specific PAdES profile.
+The main page previews PDFs and creates verified detached CAdES-BES signatures; open **Signing lab** (`lab.html`) for the preserved feasibility harness. The local harness checks native API readiness, lists certificates, signs/verifies exact PDF bytes, and assembles an embedded signature in a generated fixture. See [the feasibility report](docs/feasibility.md) for the successful user test, observed versions, format decisions, dependency evaluation and reproducible verification steps. Exact browser/certificate/verifier details still need to be recorded before publishing a broader compatibility matrix or claiming a specific PAdES profile.
 
 The bridge can log `GET chrome-extension://invalid/ net::ERR_FAILED` while probing the older extension before loading the newer one. This fallback is harmless when readiness, signing and validation succeed; keep the official bridge unchanged. See [troubleshooting](docs/feasibility.md#extension-fallback-console-error).
 
@@ -127,12 +127,14 @@ Each milestone has an acceptance gate. Embedded signing remains a required proje
 
 ### 3. Deliver detached signing
 
-- [ ] Implement the CryptoPro adapter, timeout handling, readiness diagnostics, and certificate details.
-- [ ] Handle missing plug-in, denied access, expired certificates, inaccessible private keys, token removal, cancellation, and signing failures.
-- [ ] Generate and download a detached signature together with the exact PDF it covers.
-- [ ] Verify generated signatures and distinguish cryptographic integrity from certificate trust/revocation status.
+- [x] Implement the CryptoPro adapter, timeout handling, readiness diagnostics, and certificate details.
+- [x] Handle missing plug-in, denied access, expired certificates, inaccessible private keys, token removal, cancellation, and signing failures. Native failures are surfaced with recovery guidance; real-token coverage remains manual.
+- [x] Generate and download a detached signature together with the exact PDF it covers.
+- [x] Verify generated signatures and distinguish cryptographic integrity from certificate trust/revocation status.
 
 **Acceptance:** an independent verifier accepts the downloaded pair; changing one PDF byte makes integrity verification fail; cancelled operations produce no success state.
+
+Implemented in the main workspace with automated binary, failure, cancellation and browser download checks. Independent verification of the new main-workspace downloads and real-token failure coverage remain manual acceptance checks; see [detached signing notes](docs/detached.md).
 
 ### 4. Add the visible stamp editor
 

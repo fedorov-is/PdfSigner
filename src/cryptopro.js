@@ -1,7 +1,14 @@
 import { toBase64 } from './binary.js';
+import { deadline } from './detached.js';
 
 export class CryptoPro {
-  constructor(api) { this.api = api; this.pluginVersion = ''; this.cspVersion = ''; }
+  constructor(api) {
+    this.api = api; this.pluginVersion = ''; this.cspVersion = '';
+    for (const name of ['certificates', 'sign', 'verify']) {
+      const operation = this[name].bind(this);
+      this[name] = (...args) => deadline(() => operation(...args));
+    }
+  }
   static async connect() {
     if (!globalThis.cadesplugin) throw new Error('Official bridge missing. See vendor/README.md.');
     let timer;
@@ -9,12 +16,14 @@ export class CryptoPro {
       await Promise.race([globalThis.cadesplugin, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Bridge timed out. Check native plug-in, browser extension and site access.')), 20000); })]);
     } finally { clearTimeout(timer); }
     const adapter = new CryptoPro(globalThis.cadesplugin);
+    return deadline(async () => {
     const about = await adapter.api.CreateObjectAsync('CAdESCOM.About');
     const pluginVersion = await about.PluginVersion;
     adapter.pluginVersion = await pluginVersion.toString();
     const cspVersion = await about.CSPVersion('', 80);
     adapter.cspVersion = await cspVersion.toString();
     return adapter;
+    }, 20000);
   }
   async withStore(action) {
     const store = await this.api.CreateObjectAsync('CAdESCOM.Store');
@@ -30,7 +39,7 @@ export class CryptoPro {
         if (!await cert.HasPrivateKey() || from > new Date() || to < new Date()) continue;
         const key = await cert.PublicKey();
         const algorithm = await key.Algorithm;
-        result.push({ thumbprint: await cert.Thumbprint, subject: await cert.SubjectName, issuer: await cert.IssuerName, validTo: to.toISOString(), algorithm: await algorithm.Value });
+        result.push({ thumbprint: await cert.Thumbprint, subject: await cert.SubjectName, issuer: await cert.IssuerName, validFrom: from.toISOString(), validTo: to.toISOString(), serial: await cert.SerialNumber, algorithm: await algorithm.Value });
       }
       return result;
     });
