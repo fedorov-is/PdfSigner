@@ -2,7 +2,7 @@
 
 A planned static web application for signing PDF files in the browser using **CryptoPro CSP and CryptoPro ЭЦП Browser plug-in**. Users will be able to create a separate signature file, embed a digital signature into a PDF, and place a visible stamp on a document before signing.
 
-**Status:** the current feasibility version is working. On 2026-11-10, the user confirmed that the official bridge was added, signing works correctly, and generated signatures pass validation. The static shell and local PDF preview are implemented; stamp editing and arbitrary-PDF embedded signing remain later milestones. See [the preview implementation notes](docs/preview.md).
+**Status:** the current feasibility version is working. On 2026-11-10, the user confirmed that the official bridge was added, signing works correctly, and generated signatures pass validation. The static shell and local PDF preview are implemented; the visible stamp editor and stamped detached output are implemented; arbitrary-PDF embedded signing remains a later milestone. See [stamp editor notes](docs/stamp.md). See [the preview implementation notes](docs/preview.md).
 
 ## Run the application
 
@@ -31,7 +31,7 @@ An attached CAdES container holding a PDF is a different output format from a si
 
 ### Visible stamp
 
-The planned stamp editor will support:
+The stamp editor supports:
 
 - Selecting a page, dragging the stamp, and resizing it within page boundaries.
 - Displaying the certificate holder, issuer, serial number, and a signing-time label, with an optional organization or custom caption.
@@ -58,7 +58,7 @@ The planned signing environment requires a supported browser/OS combination, Cry
 
 The application will be served as static assets over HTTPS, with a local development server for development. Static hosting does not remove the need for the locally installed CryptoPro components.
 
-PDF bytes and generated artifacts should stay in browser memory. The application must not export private keys, collect PINs, log document contents, or persist PDFs or certificate details in browser storage. Only non-sensitive preferences such as the theme should be stored. Certificate validation or optional timestamping may require network requests from CryptoPro or the client; these dependencies must be described before such features are enabled. Fully offline operation is not an initial guarantee.
+PDF bytes and generated artifacts should stay in browser memory. The application must not export private keys, collect PINs, log document contents, or persist PDFs or certificate details in browser storage. The theme preference and user-entered stamp caption are stored in localStorage; caption edits are restored across reloads and document changes. Certificate validation or optional timestamping may require network requests from CryptoPro or the client; these dependencies must be described before such features are enabled. Fully offline operation is not an initial guarantee.
 
 ## Visual design
 
@@ -138,12 +138,14 @@ Implemented in the main workspace with automated binary, failure, cancellation a
 
 ### 4. Add the visible stamp editor
 
-- [ ] Implement page selection, dragging, resizing, keyboard controls, and preview-to-PDF coordinate conversion.
-- [ ] Add certificate-based text, custom captions, embedded Cyrillic fonts, and bounds validation.
-- [ ] Export stamp-only PDFs and connect stamped output to detached signing.
-- [ ] Freeze the final stamp before signing and invalidate prepared output when its settings change.
+- [x] Implement page selection, dragging, resizing, keyboard controls, and preview-to-PDF coordinate conversion.
+- [x] Add certificate-based text, custom captions, embedded Cyrillic fonts, and bounds validation.
+- [x] Export stamp-only PDFs and connect stamped output to detached signing.
+- [x] Freeze the final stamp before signing and invalidate prepared output when its settings change.
 
 **Acceptance:** the downloaded stamp matches the preview on rotated and mixed-size pages; its detached signature validates against the exported PDF.
+
+Implementation and automated checks are documented in [stamp editor notes](docs/stamp.md). Independent verification of a stamped pair with a real certificate remains a manual acceptance check.
 
 ### 5. Deliver embedded PDF signatures
 

@@ -2,6 +2,7 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentLoadingTask, type PDF
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { CryptoPro } from './cryptopro.js';
 import { createDetached, deadline } from './detached.js';
+import { applyStamp, stampPdf, type Stamp } from './stamp';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 const el = <T extends HTMLElement>(id: string) => window.document.getElementById(id) as T;
@@ -31,6 +32,7 @@ function signingControls() {
   el<HTMLButtonElement>('sign').disabled = signing || !source || !adapter || certificates.disabled;
   el<HTMLButtonElement>('cancel-sign').hidden = !signing;
   el<HTMLButtonElement>('connect').disabled = signing;
+  el<HTMLButtonElement>('export-stamp').disabled = signing || !source || !stampEnabled.checked;
 }
 function invalidateSigning() {
   signingRun++;
@@ -66,6 +68,12 @@ function controls() {
 }
 async function clear() {
   source = undefined;
+  stampEnabled.checked = false;
+  el<HTMLFieldSetElement>('stamp-fields').disabled = true;
+  overlay.hidden = true;
+  stampRevision++;
+  for (const [key, value] of Object.entries({ page: '1', x: '24', y: '24', width: '280', height: '140' })) input(key).value = value;
+  el('stamp-status').textContent = '';
   invalidateSigning();
   generation++;
   rendering++;
@@ -101,6 +109,7 @@ async function draw() {
     const base = current.getViewport({ scale: 1 });
     const requested = zoom.value === 'fit' ? Math.max(0.1, (container.clientWidth - 32) / base.width) : Number(zoom.value);
     const viewport = current.getViewport({ scale: Math.min(requested, Math.sqrt(MAX_PIXELS / (base.width * base.height))) });
+    displayScale = viewport.scale;
     const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(MAX_PIXELS / (viewport.width * viewport.height)));
     canvas.width = Math.floor(viewport.width * ratio);
     canvas.height = Math.floor(viewport.height * ratio);
@@ -109,7 +118,7 @@ async function draw() {
     canvas.setAttribute('aria-label', `Page ${page} of ${pdf.numPages}. Visual preview.`);
     render = current.render({ canvas, viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] });
     await render.promise;
-    if (id === rendering) status(`Page ${page} of ${pdf.numPages}. Preview ready.`);
+    if (id === rendering) { status(`Page ${page} of ${pdf.numPages}. Preview ready.`); void previewStamp(); }
   } catch (error) {
     if (id === rendering) {
       canvas.width = canvas.height = 0;
@@ -189,6 +198,7 @@ certificates.addEventListener('change', () => {
   invalidateSigning();
   const cert = available.find(item => item.thumbprint === certificates.value);
   el('certificate-details').textContent = cert ? `Issuer: ${cert.issuer}. Serial: ${cert.serial}. Valid from ${new Date(cert.validFrom).toLocaleDateString()} until ${new Date(cert.validTo).toLocaleDateString()}. Key algorithm: ${cert.algorithm}.` : '';
+  void previewStamp();
 });
 el('connect').addEventListener('click', async () => {
   const button = el<HTMLButtonElement>('connect');
@@ -197,6 +207,7 @@ el('connect').addEventListener('click', async () => {
   adapter = undefined;
   available = []; certificates.replaceChildren(); certificates.disabled = true;
   el('certificate-details').textContent = '';
+  void previewStamp();
   el('readiness-status').textContent = 'Checking bridge and native API… Complete any CryptoPro access dialogs.';
   try {
     if (!window.document.querySelector('script[data-cryptopro]')) {
@@ -231,9 +242,11 @@ el('sign').addEventListener('click', async () => {
   signingControls();
   el('signing-status').textContent = 'Signing and verifying. Complete CryptoPro access or PIN dialogs.';
   try {
-    const result = await deadline(() => createDetached(active, current.bytes, selected));
+    const prepared = await finalPdf(current);
     if (run !== signingRun) return;
-    for (const [bytes, name, type] of [[result.pdf, current.name, 'application/pdf'], [result.signature, current.name + '.sig', 'application/pkcs7-signature']] as const) {
+    const result = await deadline(() => createDetached(active, prepared.bytes, selected));
+    if (run !== signingRun) return;
+    for (const [bytes, name, type] of [[result.pdf, prepared.name, 'application/pdf'], [result.signature, prepared.name + '.sig', 'application/pkcs7-signature']] as const) {
       const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
       downloads.push(url);
       const link = window.document.createElement('a');
@@ -250,6 +263,154 @@ el('sign').addEventListener('click', async () => {
 el('cancel-sign').addEventListener('click', () => {
   invalidateSigning();
   el('signing-status').textContent = 'Cancelled. No result is available. Dismiss any CryptoPro dialog; the browser cannot cancel a native operation already in progress.';
+});
+const stampEnabled = el<HTMLInputElement>('stamp-enabled');
+const overlay = el('stamp-overlay');
+let displayScale = 1, stampRevision = 0;
+const input = (key: string) => el<HTMLInputElement>('stamp-' + key);
+try {
+  const caption = localStorage.getItem('pdf-signer-stamp-caption');
+  if (caption !== null) input('caption').value = caption.slice(0, input('caption').maxLength);
+} catch { /* Storage is optional. */ }
+input('caption').addEventListener('input', () => {
+  try { localStorage.setItem('pdf-signer-stamp-caption', input('caption').value); } catch { /* Storage is optional. */ }
+});
+function ownerName(subject: string) {
+  const attributes = new Map<string, string>();
+  for (const match of subject.matchAll(/(?:^|,\s*)([\w.]+)\s*=\s*("(?:[^"]|"")*"|(?:\\.|[^,])*)/g)) {
+    attributes.set(match[1].toUpperCase(), match[2].trim().replace(/^"|"$/g, '').replace(/""/g, '"').replace(/\\(.)/g, '$1'));
+  }
+  const personal = [attributes.get('SN') ?? attributes.get('SURNAME'), attributes.get('G') ?? attributes.get('GIVENNAME')].filter(Boolean).join(' ');
+  return personal || attributes.get('CN') || (attributes.size ? 'Owner name unavailable' : subject);
+}
+function stampSettings(): Stamp {
+  const cert = available.find(c => c.thumbprint === certificates.value);
+  return { page: Number(input('page').value), x: Number(input('x').value), y: Number(input('y').value), width: Number(input('width').value), height: Number(input('height').value), caption: input('caption').value, text: cert ? [ownerName(cert.subject), `Serial: ${cert.serial}`, `Valid: ${new Date(cert.validFrom).toLocaleDateString()} – ${new Date(cert.validTo).toLocaleDateString()}`].join('\n') : '' };
+}
+async function validateStamp(stamp: Stamp) {
+  if (!document || !Number.isInteger(stamp.page) || stamp.page < 1 || stamp.page > document.numPages) throw new Error('Choose a valid stamp page.');
+  const viewport = (await document.getPage(stamp.page)).getViewport({ scale: 1 });
+  if (![stamp.x,stamp.y,stamp.width,stamp.height].every(Number.isFinite) || stamp.x < 0 || stamp.y < 0 || stamp.width < 1 || stamp.height < 1 || stamp.x + stamp.width > viewport.width + .001 || stamp.y + stamp.height > viewport.height + .001) throw new Error('Stamp must fit inside the selected visible page. Adjust position or size in points.');
+  return viewport;
+}
+function positionStamp(stamp: Stamp) {
+  Object.assign(overlay.style, { left: `${stamp.x * displayScale}px`, top: `${stamp.y * displayScale}px`, width: `${stamp.width * displayScale}px`, height: `${stamp.height * displayScale}px`, borderRadius: `${Math.min(8, stamp.width / 2, stamp.height / 2) * displayScale}px` });
+}
+async function previewStamp() {
+  const revision = ++stampRevision;
+  el('stamp-status').textContent = '';
+  if (!stampEnabled.checked || !source) { overlay.hidden = true; return; }
+  const stamp = stampSettings();
+  if (stamp.page !== page) overlay.hidden = true;
+  let task: PDFDocumentLoadingTask | undefined;
+  let validGeometry = false;
+  try {
+    await validateStamp(stamp);
+    if (revision !== stampRevision) return;
+    validGeometry = true;
+    positionStamp(stamp);
+    overlay.hidden = stamp.page !== page;
+    const bytes = await stampPdf(stamp);
+    if (revision !== stampRevision) return;
+    task = getDocument({ data: bytes });
+    const pdf = await task.promise;
+    const stampPage = await pdf.getPage(1);
+    const viewport = stampPage.getViewport({ scale: displayScale * 2 });
+    const temporary = window.document.createElement('canvas');
+    temporary.width = Math.ceil(viewport.width); temporary.height = Math.ceil(viewport.height);
+    await stampPage.render({ canvas: temporary, viewport, background: 'rgba(0,0,0,0)' }).promise;
+    if (revision !== stampRevision) return;
+    const target = el<HTMLCanvasElement>('stamp-preview');
+    target.width = temporary.width; target.height = temporary.height;
+    target.getContext('2d')!.drawImage(temporary, 0, 0);
+    positionStamp(stamp);
+    overlay.hidden = stamp.page !== page;
+    el('stamp-status').textContent = `Stamp on page ${stamp.page}.`;
+  } catch (error) {
+    if (revision === stampRevision) {
+      // Text layout errors must leave the frame and resize handle editable.
+      overlay.hidden = !validGeometry || stamp.page !== page;
+      const preview = el<HTMLCanvasElement>('stamp-preview');
+      preview.getContext('2d')?.clearRect(0, 0, preview.width, preview.height);
+      el('stamp-status').textContent = error instanceof Error ? error.message : String(error);
+    }
+  } finally { await task?.destroy(); }
+}
+function stampChanged() { invalidateSigning(); void previewStamp(); }
+let stampAddition = 0;
+stampEnabled.addEventListener('change', async () => {
+  const addition = ++stampAddition;
+  if (!source) stampEnabled.checked = false;
+  el<HTMLFieldSetElement>('stamp-fields').disabled = !stampEnabled.checked;
+  invalidateSigning();
+  const pdf = document;
+  if (!stampEnabled.checked || !pdf) { void previewStamp(); return; }
+  try {
+    const lastPage = pdf.numPages;
+    const viewport = (await pdf.getPage(lastPage)).getViewport({ scale: 1 });
+    if (addition !== stampAddition || document !== pdf || !stampEnabled.checked) return;
+    const left = Math.min(24, viewport.width / 10), bottom = Math.min(24, viewport.height / 10);
+    const width = Math.min(280, viewport.width - left * 2), height = Math.min(140, viewport.height - bottom * 2);
+    for (const [key, value] of Object.entries({ page: lastPage, x: left, y: viewport.height - bottom - height, width, height })) input(key).value = String(value);
+    go(lastPage);
+  } catch (error) {
+    if (addition === stampAddition && document === pdf) el('stamp-status').textContent = error instanceof Error ? error.message : String(error);
+  }
+});
+el('stamp-fields').addEventListener('input', stampChanged);
+input('page').addEventListener('change', () => { go(Number(input('page').value)); });
+async function finalPdf(current: { bytes: Uint8Array; name: string }) {
+  if (!stampEnabled.checked) return current;
+  const stamp = stampSettings();
+  const viewport = await validateStamp(stamp);
+  return { bytes: await applyStamp(current.bytes, stamp, viewport.transform), name: current.name.replace(/\.pdf$/i, '') + '-stamped.pdf' };
+}
+el('export-stamp').addEventListener('click', async () => {
+  if (!source || signing) return;
+  discardResult();
+  const run = ++signingRun;
+  signing = true; signingControls();
+  try {
+    const result = await finalPdf(source);
+    if (run !== signingRun) return;
+    const url = URL.createObjectURL(new Blob([new Uint8Array(result.bytes)], { type: 'application/pdf' }));
+    downloads.push(url);
+    const link = window.document.createElement('a'); link.href = url; link.download = result.name; link.textContent = 'Download ' + result.name;
+    el('downloads').append(link);
+    el('signing-status').textContent = 'Stamped PDF ready. No cryptographic signature was added.';
+  } catch (error) {
+    if (run === signingRun) el('signing-status').textContent = `Export failed: ${error instanceof Error ? error.message : String(error)}`;
+  } finally { if (run === signingRun) { signing = false; signingControls(); } }
+});
+let gesture: { id: number; x: number; y: number; stamp: Stamp; resize: boolean } | undefined;
+overlay.addEventListener('pointerdown', event => {
+  if (event.button !== 0) return;
+  event.preventDefault(); overlay.focus(); overlay.setPointerCapture(event.pointerId);
+  gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, stamp: stampSettings(), resize: event.target === el('stamp-resize') };
+});
+function setGeometry(stamp: Stamp) {
+  const width = canvas.width ? parseFloat(canvas.style.width) / displayScale : 0;
+  const height = canvas.width ? parseFloat(canvas.style.height) / displayScale : 0;
+  stamp.x = Math.max(0, Math.min(width - 1, stamp.x)); stamp.y = Math.max(0, Math.min(height - 1, stamp.y));
+  stamp.width = Math.max(1, Math.min(width - stamp.x, stamp.width)); stamp.height = Math.max(1, Math.min(height - stamp.y, stamp.height));
+  for (const key of ['x','y','width','height'] as const) input(key).value = String(Math.floor(stamp[key] * 100) / 100);
+  invalidateSigning(); positionStamp(stamp);
+}
+overlay.addEventListener('pointermove', event => {
+  if (!gesture || gesture.id !== event.pointerId) return;
+  const stamp = { ...gesture.stamp }, dx = (event.clientX - gesture.x) / displayScale, dy = (event.clientY - gesture.y) / displayScale;
+  if (gesture.resize) { stamp.width += dx; stamp.height += dy; }
+  else { stamp.x = Math.min(parseFloat(canvas.style.width) / displayScale - stamp.width, stamp.x + dx); stamp.y = Math.min(parseFloat(canvas.style.height) / displayScale - stamp.height, stamp.y + dy); }
+  setGeometry(stamp);
+});
+function endGesture() { if (gesture) { gesture = undefined; void previewStamp(); } }
+overlay.addEventListener('pointerup', endGesture); overlay.addEventListener('pointercancel', endGesture);
+overlay.addEventListener('keydown', event => {
+  if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
+  event.preventDefault();
+  const stamp = stampSettings(), dx = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0, dy = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
+  if (event.shiftKey) { stamp.width += dx; stamp.height += dy; } else { stamp.x = Math.min(parseFloat(canvas.style.width) / displayScale - stamp.width, stamp.x + dx); stamp.y = Math.min(parseFloat(canvas.style.height) / displayScale - stamp.height, stamp.y + dy); }
+  setGeometry(stamp); void previewStamp();
 });
 window.addEventListener('pagehide', () => { void clear(); });
 controls();

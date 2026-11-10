@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { PDFDocument, degrees } from 'pdf-lib';
 
 function pdf(pages = 1) {
   const objects = [ '<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${Array.from({ length: pages }, (_, i) => `${3 + i * 2} 0 R`).join(' ')}] /Count ${pages} >>` ];
@@ -24,7 +25,7 @@ test('local worker preview, navigation, zoom, reset, theme and mobile layout', a
   await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
   await page.locator('#file').setInputFiles(upload(3));
   await expect(page.locator('#status')).toHaveText('Page 1 of 3. Preview ready.');
-  expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(0);
+  expect(await page.locator('#preview').evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Next page' }).click();
   await expect(page.locator('#status')).toHaveText('Page 2 of 3. Preview ready.');
   await page.locator('#page').fill('3'); await page.locator('#page').press('Tab');
@@ -38,7 +39,7 @@ test('local worker preview, navigation, zoom, reset, theme and mobile layout', a
   await page.screenshot({ path: 'artifacts/preview-mobile-dark.png', fullPage: true });
   await page.locator('#reset').click();
   await expect(page.locator('#workspace')).toBeHidden();
-  expect(await page.locator('canvas').evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(0);
+  expect(await page.locator('#preview').evaluate((canvas: HTMLCanvasElement) => canvas.width)).toBe(0);
   expect(failures).toEqual([]);
 });
 
@@ -123,3 +124,136 @@ for (const mode of ['failure', 'pending']) {
     await expect(page.locator('#downloads a')).toHaveCount(0);
   });
 }
+
+for (const rotation of [0, 90, 180, 270]) {
+  test(`stamp export matches visible placement on cropped ${rotation}-degree page`, async ({ page }) => {
+    const fixture = await PDFDocument.create();
+    const sheet = fixture.addPage([700, 900]);
+    sheet.setCropBox(40, 60, 500, 700); sheet.setRotation(degrees(rotation));
+    fixture.addPage([300, 400]);
+    await page.goto('/');
+    await page.locator('#file').setInputFiles(upload(1, Buffer.from(await fixture.save())));
+    await expect(page.locator('#status')).toContainText('Preview ready');
+    await page.locator('#stamp-enabled').check();
+    await expect(page.locator('#stamp-page')).toHaveValue('2');
+    await expect(page.locator('#status')).toHaveText('Page 2 of 2. Preview ready.');
+    await expect(page.locator('#stamp-x')).toHaveValue('24');
+    await expect(page.locator('#stamp-y')).toHaveValue('236');
+    await page.locator('#stamp-page').fill('1'); await page.locator('#stamp-page').press('Tab');
+    await page.locator('#stamp-y').fill('24');
+    await page.locator('#stamp-width').fill('280');
+    await page.locator('#stamp-caption').fill('Подписано: Иван Иванов');
+    await expect(page.locator('#stamp-overlay')).toBeVisible();
+    await page.locator('#stamp-overlay').focus();
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#stamp-x')).toHaveValue('25');
+    await page.keyboard.press('Shift+ArrowDown');
+    await expect(page.locator('#stamp-height')).toHaveValue('141');
+    await page.locator('#zoom').selectOption('1');
+    await expect.poll(() => page.locator('#stamp-overlay').evaluate(e => parseFloat(e.style.left))).toBe(25);
+    await expect(page.locator('#stamp-status')).toHaveText('Stamp on page 1.');
+    const previewPixels = await page.locator('#stamp-preview').evaluate((source: HTMLCanvasElement) => {
+      const c = document.createElement('canvas'); c.width = 280; c.height = 141;
+      c.getContext('2d')!.drawImage(source, 0, 0, 280, 141);
+      return Array.from(c.getContext('2d')!.getImageData(0, 0, 280, 141).data);
+    });
+    await page.locator('#export-stamp').click();
+    await expect(page.locator('#downloads a')).toHaveCount(1);
+    const output = await page.locator('#downloads a').evaluate(async (a: HTMLAnchorElement) => Array.from(new Uint8Array(await (await fetch(a.href)).arrayBuffer())));
+    const exported = await PDFDocument.load(new Uint8Array(output));
+    expect(exported.getPage(0).getRotation().angle).toBe(rotation);
+    expect(exported.getPage(0).getCropBox()).toEqual(sheet.getCropBox());
+    await page.locator('#file').setInputFiles(upload(1, Buffer.from(output)));
+    await expect(page.locator('#status')).toContainText('Preview ready');
+    await page.locator('#zoom').selectOption('1');
+    // Border must appear at the same visible top-left, regardless of CropBox/Rotate.
+    await expect.poll(() => page.locator('#preview').evaluate((c: HTMLCanvasElement) => {
+      const ratio = c.width / parseFloat(c.style.width);
+      const ctx = c.getContext('2d')!;
+      const pixel = ctx.getImageData(Math.round(25 * ratio), Math.round(60 * ratio), 1, 1).data;
+      return pixel[0] < 220 && pixel[2] < 240;
+    })).toBe(true);
+    const exportedPixels = await page.locator('#preview').evaluate((source: HTMLCanvasElement) => {
+      const ratio = source.width / parseFloat(source.style.width);
+      const c = document.createElement('canvas'); c.width = 280; c.height = 141;
+      c.getContext('2d')!.drawImage(source, 25 * ratio, 24 * ratio, 280 * ratio, 141 * ratio, 0, 0, 280, 141);
+      return Array.from(c.getContext('2d')!.getImageData(0, 0, 280, 141).data);
+    });
+    // Allow antialiasing differences between the 2x overlay and final-page render.
+    const difference = exportedPixels.reduce((sum, value, i) => sum + Math.abs(value - previewPixels[i]), 0) / exportedPixels.length;
+    expect(difference).toBeLessThan(8);
+    await page.locator('#stamp-enabled').check();
+    await page.locator('#stamp-page').fill('2'); await page.locator('#stamp-page').press('Tab');
+    await expect(page.locator('#status')).toContainText('Page 2 of 2');
+    await page.locator('#stamp-width').fill('999');
+    await expect(page.locator('#stamp-status')).toContainText('must fit');
+    await page.locator('#export-stamp').click();
+    await expect(page.locator('#signing-status')).toContainText('Export failed');
+    await expect(page.locator('#downloads a')).toHaveCount(0);
+  });
+}
+
+test('undersized stamp stays editable and can be enlarged again', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#file').setInputFiles(upload());
+  await expect(page.locator('#status')).toContainText('Preview ready');
+  await page.locator('#stamp-enabled').check();
+  await page.locator('#zoom').selectOption('1');
+  await expect(page.locator('#stamp-status')).toHaveText('Stamp on page 1.');
+  const overlay = page.locator('#stamp-overlay');
+  await overlay.scrollIntoViewIfNeeded();
+  const bounds = (await overlay.boundingBox())!;
+  const handle = (await page.locator('#stamp-resize').boundingBox())!;
+  await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(bounds.x + 40, bounds.y + 20);
+  await page.mouse.up();
+  await expect(page.locator('#stamp-status')).toContainText('Text does not fit');
+  await expect(overlay).toBeVisible();
+  await expect(overlay).toBeFocused();
+  const width = Number(await page.locator('#stamp-width').inputValue());
+  await page.keyboard.press('Shift+ArrowRight');
+  await expect(page.locator('#stamp-width')).toHaveValue(String(width + 1));
+  await expect(overlay).toBeFocused();
+  await page.locator('#export-stamp').click();
+  await expect(page.locator('#signing-status')).toContainText('Text does not fit');
+  await expect(page.locator('#downloads a')).toHaveCount(0);
+  await overlay.scrollIntoViewIfNeeded();
+  const smallBounds = (await overlay.boundingBox())!;
+  const smallHandle = (await page.locator('#stamp-resize').boundingBox())!;
+  await page.mouse.move(smallHandle.x + smallHandle.width / 2, smallHandle.y + smallHandle.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(smallBounds.x + 280, smallBounds.y + 140);
+  await page.mouse.up();
+  await expect(page.locator('#stamp-status')).toHaveText('Stamp on page 1.');
+  await expect(overlay).toBeVisible();
+  await page.locator('#export-stamp').click();
+  await expect(page.locator('#downloads a')).toHaveCount(1);
+});
+
+test('stamped detached output signs exported bytes and edits invalidate results', async ({ page }) => {
+  await mockCryptoPro(page);
+  await page.goto('/'); await page.locator('#connect').click();
+  await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+  await page.locator('#file').setInputFiles(upload());
+  await expect(page.locator('#status')).toContainText('Preview ready');
+  await page.locator('#stamp-enabled').check();
+  await page.locator('#stamp-caption').fill('Документ подписан');
+  await expect(page.locator('#stamp-overlay')).toBeVisible();
+  await page.locator('#stamp-overlay').scrollIntoViewIfNeeded();
+  const bounds = (await page.locator('#stamp-overlay').boundingBox())!;
+  await page.mouse.move(bounds.x + 20, bounds.y + 20); await page.mouse.down();
+  await page.mouse.move(bounds.x + 30, bounds.y + 30); await page.mouse.up();
+  expect(Number(await page.locator('#stamp-x').inputValue())).toBeGreaterThan(24);
+  await page.locator('#sign').click();
+  await expect(page.locator('#signing-status')).toContainText('changed-byte check rejected');
+  const links = page.locator('#downloads a');
+  await expect(links).toHaveCount(2);
+  const results = await links.evaluateAll(async elements => Promise.all(elements.map(async a => Array.from(new Uint8Array(await (await fetch((a as HTMLAnchorElement).href)).arrayBuffer())))));
+  expect(results[0]).toEqual(results[1]);
+  expect(Buffer.from(results[0])).not.toEqual(pdf());
+  await expect(links.nth(0)).toHaveAttribute('download', 'Preview-stamped.pdf');
+  await expect(links.nth(1)).toHaveAttribute('download', 'Preview-stamped.pdf.sig');
+  await page.locator('#stamp-caption').fill('Changed');
+  await expect(links).toHaveCount(0);
+});
