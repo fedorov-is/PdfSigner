@@ -1,15 +1,30 @@
 ﻿import ru from './ru.json';
 
 export function resolveLanguage(saved, languages = []) {
-  return saved === 'en' || saved === 'ru' ? saved : languages.some(value => /^ru(?:-|$)/i.test(value)) ? 'ru' : 'en';
+  return saved === 'en' || saved === 'ru'
+    ? saved
+    : languages.some((value) => /^ru(?:-|$)/i.test(value))
+      ? 'ru'
+      : 'en';
 }
 let saved;
-try { saved = globalThis.localStorage?.getItem('pdf-signer-language'); } catch { /* Storage is optional. */ }
-export const locale = resolveLanguage(globalThis.location ? new URL(globalThis.location.href).searchParams.get('lang') ?? saved : saved, globalThis.navigator?.languages);
+try {
+  saved = globalThis.localStorage?.getItem('pdf-signer-language');
+} catch {
+  /* Storage is optional. */
+}
+export const locale = resolveLanguage(
+  globalThis.location
+    ? (new URL(globalThis.location.href).searchParams.get('lang') ?? saved)
+    : saved,
+  globalThis.navigator?.languages,
+);
 
 export function t(key, ...values) {
-  const message = locale === 'ru' ? ru[key] ?? key : key;
-  return message.replace(/\{(\d+)\}/g, (_, index) => String(values[Number(index)] ?? `{${index}}`));
+  const message = locale === 'ru' ? (ru[key] ?? key) : key;
+  return message.replace(/\{(\d+)\}/g, (_, index) =>
+    String(values[Number(index)] ?? `{${index}}`),
+  );
 }
 
 export function initLocalization() {
@@ -30,7 +45,11 @@ export function initLocalization() {
   const selector = document.getElementById('language');
   selector.value = locale;
   selector.addEventListener('change', () => {
-    try { localStorage.setItem('pdf-signer-language', selector.value); } catch { /* Storage is optional. */ }
+    try {
+      localStorage.setItem('pdf-signer-language', selector.value);
+    } catch {
+      /* Storage is optional. */
+    }
     // Preserve the explicit choice even when storage is unavailable.
     const url = new URL(location.href);
     url.searchParams.set('lang', selector.value);

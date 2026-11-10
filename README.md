@@ -10,6 +10,9 @@ Use Node.js 22.13+ (24 recommended). Run `npm.cmd ci` first. The official Crypto
 
 The main page previews PDFs and creates verified detached or embedded CAdES-BES signatures. See [release notes](docs/release.md) for installation, compatibility and verification requirements.
 
+## Formatting
+
+Run `npm run format` to format project files with Prettier, or `npm run format:check` to check formatting without changing files. On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`. Generated output and third-party files are excluded via `.prettierignore`.
 
 ## Goals
 
@@ -20,11 +23,11 @@ The main page previews PDFs and creates verified detached or embedded CAdES-BES 
 
 ## Signing modes
 
-| Mode | Output | Behavior |
-| --- | --- | --- |
-| Separate signature | PDF plus a detached CMS/CAdES signature, initially `.sig` | Sign the exact bytes of the final PDF. The PDF and signature must be kept together for verification. |
-| Embedded signature | A signed `.pdf` | Store a cryptographic signature in the PDF signature structure, covering its declared byte ranges. Target a documented PDF/CAdES profile after interoperability testing. |
-| Visible stamp | A PDF containing a stamp | Add a visible representation of signing information. A stamp alone is not a cryptographic signature. It can be used with either signing mode or exported on its own. |
+| Mode               | Output                                                    | Behavior                                                                                                                                                                 |
+| ------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Separate signature | PDF plus a detached CMS/CAdES signature, initially `.sig` | Sign the exact bytes of the final PDF. The PDF and signature must be kept together for verification.                                                                     |
+| Embedded signature | A signed `.pdf`                                           | Store a cryptographic signature in the PDF signature structure, covering its declared byte ranges. Target a documented PDF/CAdES profile after interoperability testing. |
+| Visible stamp      | A PDF containing a stamp                                  | Add a visible representation of signing information. A stamp alone is not a cryptographic signature. It can be used with either signing mode or exported on its own.     |
 
 An attached CAdES container holding a PDF is a different output format from a signature embedded in the PDF structure. The embedded-signature feature must produce an actual signed PDF.
 
@@ -76,14 +79,14 @@ Keep the first screen focused on opening a PDF and checking CryptoPro readiness.
 
 Use TypeScript with a lightweight static build, provisionally Vite and native DOM components. No server-side signing endpoint is planned. Dependencies are pinned and packaged locally; distribution and browser compatibility review remain release requirements.
 
-| Component | Responsibility |
-| --- | --- |
-| Application state and UI | Document workflow, status, theme, progress, and downloads |
-| CryptoPro adapter | Load the official bridge, detect readiness, enumerate certificates, sign and verify binary content through asynchronous APIs |
-| PDF preview | Render pages with PDF.js and map preview coordinates to PDF coordinates |
-| Stamp editor | Configure stamp content, position, dimensions, and font embedding |
-| PDF preparation | Apply stamps and prepare signature fields, placeholders, byte ranges, and serialization |
-| Signing orchestration | Freeze prepared bytes, request a CMS signature, assemble output, verify, and expose downloads |
+| Component                | Responsibility                                                                                                               |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Application state and UI | Document workflow, status, theme, progress, and downloads                                                                    |
+| CryptoPro adapter        | Load the official bridge, detect readiness, enumerate certificates, sign and verify binary content through asynchronous APIs |
+| PDF preview              | Render pages with PDF.js and map preview coordinates to PDF coordinates                                                      |
+| Stamp editor             | Configure stamp content, position, dimensions, and font embedding                                                            |
+| PDF preparation          | Apply stamps and prepare signature fields, placeholders, byte ranges, and serialization                                      |
+| Signing orchestration    | Freeze prepared bytes, request a CMS signature, assemble output, verify, and expose downloads                                |
 
 PDF.js is a rendering candidate; a PDF editing library such as pdf-lib is a candidate for stamp-only document preparation. PDF signature serialization and incremental updates require a separate capability evaluation: a general-purpose editor is not assumed to preserve existing signatures or implement PDF signing correctly.
 

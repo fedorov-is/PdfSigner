@@ -69,21 +69,21 @@ pixel rendering budget. This bounds canvas memory, not total PDF parser memory.
 
 Record exact versions and evidence; leave untested rows pending.
 
-| Environment / check | Status / evidence |
-| --- | --- |
-| Automated Chrome on this Windows workspace | See test results recorded in README |
-| OS, browser, CSP, native plug-in, extension versions | Pending real-environment record |
-| GOST algorithm OID, certificate type, key/token model | Pending; never record a PIN or private key |
-| Detached, unstamped and stamped: independent verifier accepts exact downloaded pair | Pending |
-| Embedded, unstamped and stamped: independent GOST-capable reader accepts PDF | Pending |
-| Change a covered byte: independent verifier rejects each mode | Pending |
-| Expired certificate, denied access, removed token, unavailable key, native cancellation | Pending real-token checks |
-| Password-encrypted PDF rejected, original remains intact | Pending real encrypted fixture |
-| Keyboard-only file selection, navigation, stamp editing, signing, download, reset | Automated partial coverage; manual screen reader check pending |
-| Light/dark contrast, focus visibility and 200% browser zoom | Automated text contrast; manual visual review pending |
-| Repeated 20 MiB open/reset and stamp edits in browser memory profiler | Pending; worker/canvas cleanup is automated |
-| Production HTTPS host headers, asset MIME types and real extension CSP compatibility | Pending deployment |
-| Official bridge redistribution terms and approved asset review | Pending; local licenses ship for PDF.js, pdf-lib, fontkit and Noto Sans |
+| Environment / check                                                                     | Status / evidence                                                       |
+| --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Automated Chrome on this Windows workspace                                              | See test results recorded in README                                     |
+| OS, browser, CSP, native plug-in, extension versions                                    | Pending real-environment record                                         |
+| GOST algorithm OID, certificate type, key/token model                                   | Pending; never record a PIN or private key                              |
+| Detached, unstamped and stamped: independent verifier accepts exact downloaded pair     | Pending                                                                 |
+| Embedded, unstamped and stamped: independent GOST-capable reader accepts PDF            | Pending                                                                 |
+| Change a covered byte: independent verifier rejects each mode                           | Pending                                                                 |
+| Expired certificate, denied access, removed token, unavailable key, native cancellation | Pending real-token checks                                               |
+| Password-encrypted PDF rejected, original remains intact                                | Pending real encrypted fixture                                          |
+| Keyboard-only file selection, navigation, stamp editing, signing, download, reset       | Automated partial coverage; manual screen reader check pending          |
+| Light/dark contrast, focus visibility and 200% browser zoom                             | Automated text contrast; manual visual review pending                   |
+| Repeated 20 MiB open/reset and stamp edits in browser memory profiler                   | Pending; worker/canvas cleanup is automated                             |
+| Production HTTPS host headers, asset MIME types and real extension CSP compatibility    | Pending deployment                                                      |
+| Official bridge redistribution terms and approved asset review                          | Pending; local licenses ship for PDF.js, pdf-lib, fontkit and Noto Sans |
 
 Use test documents and a test certificate. For every signing row record the output
 mode, stamp choice, algorithm, verifier name/version, result, and date. Retain only

@@ -24,10 +24,10 @@ Initial resource policy: 20 MiB per file, 500 pages, one rendered page at a time
 
 Measurements using Chrome on this Windows development machine, against the production build:
 
-| Generated fixture | Size | Open through first-page render |
-| --- | --- | --- |
-| 500 simple text pages, alternating page widths | 158,933 bytes | 229–232 ms |
-| One text page padded with whitespace | 20 MiB | 2,942 ms (includes browser test file transfer) |
+| Generated fixture                              | Size          | Open through first-page render                 |
+| ---------------------------------------------- | ------------- | ---------------------------------------------- |
+| 500 simple text pages, alternating page widths | 158,933 bytes | 229–232 ms                                     |
+| One text page padded with whitespace           | 20 MiB        | 2,942 ms (includes browser test file transfer) |
 
 The 501-page and 20 MiB + 1 byte fixtures were rejected. These are synthetic boundary measurements, not representative scanned-document benchmarks. Keep the current caps until testing real scanned/image-heavy PDFs on the intended minimum hardware; lowering them remains appropriate if that testing exposes memory pressure.
 

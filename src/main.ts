@@ -1,5 +1,11 @@
 import { t, initLocalization, locale } from './i18n.js';
-import { getDocument, GlobalWorkerOptions, type PDFDocumentLoadingTask, type PDFDocumentProxy, type RenderTask } from 'pdfjs-dist';
+import {
+  getDocument,
+  GlobalWorkerOptions,
+  type PDFDocumentLoadingTask,
+  type PDFDocumentProxy,
+  type RenderTask,
+} from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { CryptoPro } from './cryptopro.js';
 import { createDetached, deadline } from './detached.js';
@@ -9,7 +15,8 @@ import { enhanceDropdowns } from './dropdown';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 initLocalization();
-const el = <T extends HTMLElement>(id: string) => window.document.getElementById(id) as T;
+const el = <T extends HTMLElement>(id: string) =>
+  window.document.getElementById(id) as T;
 const fileInput = el<HTMLInputElement>('file');
 const pageInput = el<HTMLInputElement>('page');
 const zoom = el<HTMLSelectElement>('zoom');
@@ -29,15 +36,17 @@ let connecting = false;
 let signingRun = 0;
 const downloads: string[] = [];
 function discardResult() {
-  downloads.forEach(url => URL.revokeObjectURL(url));
+  downloads.forEach((url) => URL.revokeObjectURL(url));
   downloads.length = 0;
   el('downloads').replaceChildren();
 }
 function signingControls() {
-  el<HTMLButtonElement>('sign').disabled = signing || !source || !adapter || certificates.disabled;
+  el<HTMLButtonElement>('sign').disabled =
+    signing || !source || !adapter || certificates.disabled;
   el<HTMLButtonElement>('cancel-sign').hidden = !signing;
   el<HTMLButtonElement>('connect').disabled = signing || connecting;
-  el<HTMLButtonElement>('export-stamp').disabled = signing || !source || !stampEnabled.checked;
+  el<HTMLButtonElement>('export-stamp').disabled =
+    signing || !source || !stampEnabled.checked;
 }
 function invalidateSigning() {
   signingRun++;
@@ -59,17 +68,30 @@ function applyTheme(dark: boolean) {
   theme.checked = dark;
 }
 let stored: string | null = null;
-try { stored = localStorage.getItem('pdf-signer-theme'); } catch { /* Storage is optional. */ }
-applyTheme(stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+try {
+  stored = localStorage.getItem('pdf-signer-theme');
+} catch {
+  /* Storage is optional. */
+}
+applyTheme(
+  stored
+    ? stored === 'dark'
+    : matchMedia('(prefers-color-scheme: dark)').matches,
+);
 theme.addEventListener('change', () => {
   applyTheme(theme.checked);
-  try { localStorage.setItem('pdf-signer-theme', theme.checked ? 'dark' : 'light'); } catch { /* Storage is optional. */ }
+  try {
+    localStorage.setItem('pdf-signer-theme', theme.checked ? 'dark' : 'light');
+  } catch {
+    /* Storage is optional. */
+  }
 });
 function controls() {
   pageInput.value = String(page);
   pageInput.max = String(document?.numPages ?? 1);
   el<HTMLButtonElement>('previous').disabled = !document || page <= 1;
-  el<HTMLButtonElement>('next').disabled = !document || page >= document.numPages;
+  el<HTMLButtonElement>('next').disabled =
+    !document || page >= document.numPages;
 }
 async function clear() {
   source = undefined;
@@ -81,7 +103,14 @@ async function clear() {
   const stampCanvas = el<HTMLCanvasElement>('stamp-preview');
   stampCanvas.width = stampCanvas.height = 0;
   stampRevision++;
-  for (const [key, value] of Object.entries({ page: '1', x: '24', y: '24', width: '280', height: '140' })) input(key).value = value;
+  for (const [key, value] of Object.entries({
+    page: '1',
+    x: '24',
+    y: '24',
+    width: '280',
+    height: '140',
+  }))
+    input(key).value = value;
   el('stamp-status').textContent = '';
   invalidateSigning();
   generation++;
@@ -111,87 +140,171 @@ async function draw() {
   const previous = render;
   previous?.cancel();
   container.setAttribute('aria-busy', 'true');
-  status(t("Rendering page {0} of {1}…", page, pdf.numPages));
+  status(t('Rendering page {0} of {1}…', page, pdf.numPages));
   try {
     if (previous) await previous.promise.catch(() => {});
     const current = await pdf.getPage(page);
     if (id !== rendering) return;
     const base = current.getViewport({ scale: 1 });
-    const requested = zoom.value === 'fit' ? Math.max(0.1, (container.clientWidth - 32) / base.width) : Number(zoom.value);
-    const viewport = current.getViewport({ scale: Math.min(requested, Math.sqrt(MAX_PIXELS / (base.width * base.height))) });
+    const requested =
+      zoom.value === 'fit'
+        ? Math.max(0.1, (container.clientWidth - 32) / base.width)
+        : Number(zoom.value);
+    const viewport = current.getViewport({
+      scale: Math.min(
+        requested,
+        Math.sqrt(MAX_PIXELS / (base.width * base.height)),
+      ),
+    });
     displayScale = viewport.scale;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(MAX_PIXELS / (viewport.width * viewport.height)));
+    const ratio = Math.min(
+      window.devicePixelRatio || 1,
+      2,
+      Math.sqrt(MAX_PIXELS / (viewport.width * viewport.height)),
+    );
     canvas.width = Math.floor(viewport.width * ratio);
     canvas.height = Math.floor(viewport.height * ratio);
     canvas.style.width = `${viewport.width}px`;
     canvas.style.height = `${viewport.height}px`;
-    canvas.setAttribute('aria-label', t("Page {0} of {1}. Visual preview.", page, pdf.numPages));
-    render = current.render({ canvas, viewport, transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0] });
+    canvas.setAttribute(
+      'aria-label',
+      t('Page {0} of {1}. Visual preview.', page, pdf.numPages),
+    );
+    render = current.render({
+      canvas,
+      viewport,
+      transform: ratio === 1 ? undefined : [ratio, 0, 0, ratio, 0, 0],
+    });
     await render.promise;
-    if (id === rendering) { status(t("Page {0} of {1}. Preview ready.", page, pdf.numPages)); void previewStamp(); }
+    if (id === rendering) {
+      status(t('Page {0} of {1}. Preview ready.', page, pdf.numPages));
+      void previewStamp();
+    }
   } catch (error) {
     if (id === rendering) {
       canvas.width = canvas.height = 0;
-      status(t("Unable to render this page: {0}", t(error instanceof Error ? error.message : String(error))), true);
+      status(
+        t(
+          'Unable to render this page: {0}',
+          t(error instanceof Error ? error.message : String(error)),
+        ),
+        true,
+      );
     }
-  } finally { if (id === rendering) container.setAttribute('aria-busy', 'false'); }
+  } finally {
+    if (id === rendering) container.setAttribute('aria-busy', 'false');
+  }
 }
 async function open(file: File) {
   const clearing = clear();
   const id = generation;
   await clearing;
   if (id !== generation) return;
-  status(t("Loading {0}…", file.name));
+  status(t('Loading {0}…', file.name));
   try {
-    if (!file.size || file.size > MAX_BYTES) throw new Error(t("Choose a non-empty PDF no larger than 20 MiB."));
+    if (!file.size || file.size > MAX_BYTES)
+      throw new Error(t('Choose a non-empty PDF no larger than 20 MiB.'));
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (id !== generation) return;
-    if (!new TextDecoder().decode(bytes.subarray(0, 1024)).includes('%PDF-')) throw new Error(t("This file does not have a PDF header."));
+    if (!new TextDecoder().decode(bytes.subarray(0, 1024)).includes('%PDF-'))
+      throw new Error(t('This file does not have a PDF header.'));
     const assets = `${import.meta.env.BASE_URL}pdfjs/`;
-    const task = getDocument({ data: bytes.slice(), cMapUrl: `${assets}cmaps/`, cMapPacked: true, standardFontDataUrl: `${assets}standard_fonts/`, wasmUrl: `${assets}wasm/` });
+    const task = getDocument({
+      data: bytes.slice(),
+      cMapUrl: `${assets}cmaps/`,
+      cMapPacked: true,
+      standardFontDataUrl: `${assets}standard_fonts/`,
+      wasmUrl: `${assets}wasm/`,
+    });
     loading = task;
     // Encrypted documents are deliberately unsupported in this milestone.
-    task.onPassword = () => { if (id === generation) { void clear(); status(t("Password-protected PDFs are not supported. Open an unencrypted copy."), true); } };
+    task.onPassword = () => {
+      if (id === generation) {
+        void clear();
+        status(
+          t(
+            'Password-protected PDFs are not supported. Open an unencrypted copy.',
+          ),
+          true,
+        );
+      }
+    };
     const pdf = await task.promise;
     if (id !== generation) return;
-    if (pdf.numPages > MAX_PAGES) throw new Error(t("This PDF exceeds the 500-page preview limit."));
+    if (pdf.numPages > MAX_PAGES)
+      throw new Error(t('This PDF exceeds the 500-page preview limit.'));
     const fields = await pdf.getFieldObjects();
     if (id !== generation) return;
-    const signed = Object.values(fields ?? {}).flat().some(field => field.type === 'Sig');
-    if (signed || /\/ByteRange\s*\[|\/FT\s*\/Sig\b/.test(new TextDecoder('latin1').decode(bytes))) {
-      el('signing-status').textContent = t("Existing signature detected. Signing this PDF is not supported yet.");
+    const signed = Object.values(fields ?? {})
+      .flat()
+      .some((field) => field.type === 'Sig');
+    if (
+      signed ||
+      /\/ByteRange\s*\[|\/FT\s*\/Sig\b/.test(
+        new TextDecoder('latin1').decode(bytes),
+      )
+    ) {
+      el('signing-status').textContent = t(
+        'Existing signature detected. Signing this PDF is not supported yet.',
+      );
     } else {
       try {
         await assertUnsigned(bytes);
         if (id !== generation) return;
         source = { bytes, name: file.name };
-      }
-      catch (error) {
+      } catch (error) {
         if (id !== generation) return;
-        el('signing-status').textContent = t(error instanceof Error ? error.message : String(error));
+        el('signing-status').textContent = t(
+          error instanceof Error ? error.message : String(error),
+        );
       }
     }
     if (id !== generation) return;
     document = pdf;
     signingControls();
     el('filename').textContent = file.name;
-    el('file-size').textContent = t('{0} MiB', (file.size / 1024 / 1024).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+    el('file-size').textContent = t(
+      '{0} MiB',
+      (file.size / 1024 / 1024).toLocaleString(locale, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }),
+    );
     el('total-pages').textContent = String(pdf.numPages);
-    el('page-count').textContent = t("of {0}", pdf.numPages);
+    el('page-count').textContent = t('of {0}', pdf.numPages);
     el('workspace').hidden = false;
     controls();
     await draw();
   } catch (error) {
     if (id !== generation) return;
     await clear();
-    status(t("Could not open PDF: {0}", t(error instanceof Error ? error.message : String(error))), true);
+    status(
+      t(
+        'Could not open PDF: {0}',
+        t(error instanceof Error ? error.message : String(error)),
+      ),
+      true,
+    );
   }
 }
-fileInput.addEventListener('change', () => { const file = fileInput.files?.[0]; if (file) void open(file); });
-el('reset').addEventListener('click', () => { void clear(); status(t("No document loaded.")); fileInput.focus(); });
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files?.[0];
+  if (file) void open(file);
+});
+el('reset').addEventListener('click', () => {
+  void clear();
+  status(t('No document loaded.'));
+  fileInput.focus();
+});
 function go(target: number) {
   if (!document) return;
-  page = Math.max(1, Math.min(document.numPages, Number.isFinite(target) ? Math.trunc(target) : page));
+  page = Math.max(
+    1,
+    Math.min(
+      document.numPages,
+      Number.isFinite(target) ? Math.trunc(target) : page,
+    ),
+  );
   controls();
   container.scrollTop = container.scrollLeft = 0;
   void draw();
@@ -199,26 +312,52 @@ function go(target: number) {
 el('previous').addEventListener('click', () => go(page - 1));
 el('next').addEventListener('click', () => go(page + 1));
 pageInput.addEventListener('change', () => go(Number(pageInput.value)));
-zoom.addEventListener('change', () => { void draw(); });
+zoom.addEventListener('change', () => {
+  void draw();
+});
 let resizeTimer: ReturnType<typeof setTimeout>;
-new ResizeObserver(() => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (zoom.value === 'fit') void draw(); }, 120); }).observe(container);
+new ResizeObserver(() => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (zoom.value === 'fit') void draw();
+  }, 120);
+}).observe(container);
 const drop = el('drop-zone');
-window.addEventListener('dragover', event => event.preventDefault());
-window.addEventListener('drop', event => event.preventDefault());
-drop.addEventListener('dragover', event => { event.preventDefault(); drop.classList.add('dragging'); });
+window.addEventListener('dragover', (event) => event.preventDefault());
+window.addEventListener('drop', (event) => event.preventDefault());
+drop.addEventListener('dragover', (event) => {
+  event.preventDefault();
+  drop.classList.add('dragging');
+});
 drop.addEventListener('dragleave', () => drop.classList.remove('dragging'));
-drop.addEventListener('drop', event => {
-  event.preventDefault(); drop.classList.remove('dragging');
+drop.addEventListener('drop', (event) => {
+  event.preventDefault();
+  drop.classList.remove('dragging');
   const files = event.dataTransfer?.files;
   if (files?.length === 1) void open(files[0]);
-  else status(t("Drop one PDF at a time."), true);
+  else status(t('Drop one PDF at a time.'), true);
 });
 const certificates = el<HTMLSelectElement>('certificate');
-let available: { thumbprint: string; subject: string; issuer: string; validFrom: string; validTo: string; serial: string; algorithm: string }[] = [];
+let available: {
+  thumbprint: string;
+  subject: string;
+  issuer: string;
+  validFrom: string;
+  validTo: string;
+  serial: string;
+  algorithm: string;
+}[] = [];
 certificates.addEventListener('change', () => {
   invalidateSigning();
-  const cert = available.find(item => item.thumbprint === certificates.value);
-  el('certificate-details').textContent = cert ? t("{0}. Valid: {1} – {2}.", ownerName(cert.subject), new Date(cert.validFrom).toLocaleDateString(locale), new Date(cert.validTo).toLocaleDateString(locale)) : '';
+  const cert = available.find((item) => item.thumbprint === certificates.value);
+  el('certificate-details').textContent = cert
+    ? t(
+        '{0}. Valid: {1} – {2}.',
+        ownerName(cert.subject),
+        new Date(cert.validFrom).toLocaleDateString(locale),
+        new Date(cert.validTo).toLocaleDateString(locale),
+      )
+    : '';
   void previewStamp();
 });
 async function checkCryptoPro() {
@@ -229,117 +368,276 @@ async function checkCryptoPro() {
   button.disabled = true;
   invalidateSigning();
   adapter = undefined;
-  available = []; certificates.replaceChildren(); certificates.disabled = true;
+  available = [];
+  certificates.replaceChildren();
+  certificates.disabled = true;
   el('certificate-details').textContent = '';
   void previewStamp();
-  el('readiness-status').textContent = t("Checking bridge and native API… Complete any CryptoPro access dialogs.");
+  el('readiness-status').textContent = t(
+    'Checking bridge and native API… Complete any CryptoPro access dialogs.',
+  );
   try {
     if (!window.document.querySelector('script[data-cryptopro]')) {
-      await deadline(() => new Promise<void>((resolve, reject) => {
-        const script = window.document.createElement('script');
-        script.dataset.cryptopro = 'true';
-        script.src = `${import.meta.env.BASE_URL}vendor/cadesplugin_api.js`;
-        script.onload = () => resolve();
-        script.onerror = () => { script.remove(); reject(new Error(t("Could not load the local CryptoPro bridge"))); };
-        window.document.head.append(script);
-      }), 20000);
+      await deadline(
+        () =>
+          new Promise<void>((resolve, reject) => {
+            const script = window.document.createElement('script');
+            script.dataset.cryptopro = 'true';
+            script.src = `${import.meta.env.BASE_URL}vendor/cadesplugin_api.js`;
+            script.onload = () => resolve();
+            script.onerror = () => {
+              script.remove();
+              reject(new Error(t('Could not load the local CryptoPro bridge')));
+            };
+            window.document.head.append(script);
+          }),
+        20000,
+      );
     }
     const connected = await CryptoPro.connect();
     adapter = connected;
     available = await connected.certificates();
-    for (const cert of available) certificates.add(new Option(ownerName(cert.subject), cert.thumbprint));
+    for (const cert of available)
+      certificates.add(new Option(ownerName(cert.subject), cert.thumbprint));
     certificates.disabled = !available.length;
     certificates.dispatchEvent(new Event('change'));
-    el('readiness-status').textContent = t("Plug-in {0}; CSP {1}. {2} time-valid certificate(s) with private keys. Key access is confirmed only by signing.", connected.pluginVersion, connected.cspVersion, available.length);
-    if (!available.length) certificates.add(new Option(t("No time-valid certificates with private keys found")));
+    el('readiness-status').textContent = t(
+      'Plug-in {0}; CSP {1}. {2} time-valid certificate(s) with private keys. Key access is confirmed only by signing.',
+      connected.pluginVersion,
+      connected.cspVersion,
+      available.length,
+    );
+    if (!available.length)
+      certificates.add(
+        new Option(t('No time-valid certificates with private keys found')),
+      );
     el('readiness').hidden = available.length > 0;
   } catch (error) {
     adapter = undefined;
     el('readiness').hidden = false;
-    el('readiness-status').textContent = t("CryptoPro unavailable: {0}. Check CSP, Browser plug-in and extension installation. Preview remains available.", t(error instanceof Error ? error.message : String(error)));
-    certificates.add(new Option(t("CryptoPro unavailable")));
-  } finally { connecting = false; button.disabled = false; signingControls(); }
+    el('readiness-status').textContent = t(
+      'CryptoPro unavailable: {0}. Check CSP, Browser plug-in and extension installation. Preview remains available.',
+      t(error instanceof Error ? error.message : String(error)),
+    );
+    certificates.add(new Option(t('CryptoPro unavailable')));
+  } finally {
+    connecting = false;
+    button.disabled = false;
+    signingControls();
+  }
 }
-el('connect').addEventListener('click', () => { void checkCryptoPro(); });
+el('connect').addEventListener('click', () => {
+  void checkCryptoPro();
+});
 el('sign').addEventListener('click', async () => {
   if (!source || !adapter || signing) return;
   discardResult();
-  const current = source, selected = certificates.value, active = adapter;
+  const current = source,
+    selected = certificates.value,
+    active = adapter;
   const run = ++signingRun;
   signing = true;
   signingControls();
-  el('signing-status').textContent = t("Signing and verifying. Complete CryptoPro access or PIN dialogs.");
+  el('signing-status').textContent = t(
+    'Signing and verifying. Complete CryptoPro access or PIN dialogs.',
+  );
   try {
     const prepared = await finalPdf(current);
     if (run !== signingRun) return;
     const embedded = el<HTMLSelectElement>('signing-mode').value === 'embedded';
-    const result = await deadline(() => embedded ? createEmbedded(active, prepared.bytes, selected, () => run === signingRun) : createDetached(active, prepared.bytes, selected));
+    const result = await deadline(() =>
+      embedded
+        ? createEmbedded(
+            active,
+            prepared.bytes,
+            selected,
+            () => run === signingRun,
+          )
+        : createDetached(active, prepared.bytes, selected),
+    );
     if (run !== signingRun) return;
-    const artifacts: [Uint8Array, string, string][] = [[result.pdf, embedded ? prepared.name.replace(/\.pdf$/i, '') + '-signed.pdf' : prepared.name, 'application/pdf']];
-    if ('signature' in result) artifacts.push([result.signature as Uint8Array, prepared.name + '.sig', 'application/pkcs7-signature']);
+    const artifacts: [Uint8Array, string, string][] = [
+      [
+        result.pdf,
+        embedded
+          ? prepared.name.replace(/\.pdf$/i, '') + '-signed.pdf'
+          : prepared.name,
+        'application/pdf',
+      ],
+    ];
+    if ('signature' in result)
+      artifacts.push([
+        result.signature as Uint8Array,
+        prepared.name + '.sig',
+        'application/pkcs7-signature',
+      ]);
     for (const [bytes, name, type] of artifacts) {
-      const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
+      const url = URL.createObjectURL(
+        new Blob([new Uint8Array(bytes)], { type }),
+      );
       downloads.push(url);
       const link = window.document.createElement('a');
-      link.href = url; link.download = name; link.textContent = t("Download ") + name;
+      link.href = url;
+      link.download = name;
+      link.textContent = t('Download ') + name;
       el('downloads').append(link, window.document.createElement('br'));
     }
-    el('signing-status').textContent = embedded ? t("Embedded CAdES-BES verified by CryptoPro from the final PDF; changed-byte check rejected. Reader compatibility requires independent verification. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.") : t("Detached CAdES-BES verified by CryptoPro; changed-byte check rejected. Keep both files together. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.");
+    el('signing-status').textContent = embedded
+      ? t(
+          'Embedded CAdES-BES verified by CryptoPro from the final PDF; changed-byte check rejected. Reader compatibility requires independent verification. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.',
+        )
+      : t(
+          'Detached CAdES-BES verified by CryptoPro; changed-byte check rejected. Keep both files together. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.',
+        );
   } catch (error) {
     if (run !== signingRun) return;
     discardResult();
-    el('signing-status').textContent = t("Signing failed: ") + (t(error instanceof Error ? error.message : String(error))) + t(". Check certificate validity, private-key access and token connection. If access was denied or cancelled, retry explicitly. No result is available.");
-  } finally { if (run === signingRun) { signingRun++; signing = false; signingControls(); } }
+    el('signing-status').textContent =
+      t('Signing failed: ') +
+      t(error instanceof Error ? error.message : String(error)) +
+      t(
+        '. Check certificate validity, private-key access and token connection. If access was denied or cancelled, retry explicitly. No result is available.',
+      );
+  } finally {
+    if (run === signingRun) {
+      signingRun++;
+      signing = false;
+      signingControls();
+    }
+  }
 });
 const signingMode = el<HTMLSelectElement>('signing-mode');
 try {
   const savedMode = localStorage.getItem('pdf-signer-output-format');
-  if (savedMode === 'detached' || savedMode === 'embedded') signingMode.value = savedMode;
-} catch { /* Storage is optional. */ }
+  if (savedMode === 'detached' || savedMode === 'embedded')
+    signingMode.value = savedMode;
+} catch {
+  /* Storage is optional. */
+}
 signingMode.addEventListener('change', () => {
-  try { localStorage.setItem('pdf-signer-output-format', signingMode.value); } catch { /* Storage is optional. */ }
+  try {
+    localStorage.setItem('pdf-signer-output-format', signingMode.value);
+  } catch {
+    /* Storage is optional. */
+  }
   invalidateSigning();
 });
 el('cancel-sign').addEventListener('click', () => {
   invalidateSigning();
-  el('signing-status').textContent = t("Cancelled. No result is available. Dismiss any CryptoPro dialog; the browser cannot cancel a native operation already in progress.");
+  el('signing-status').textContent = t(
+    'Cancelled. No result is available. Dismiss any CryptoPro dialog; the browser cannot cancel a native operation already in progress.',
+  );
 });
 const stampEnabled = el<HTMLInputElement>('stamp-enabled');
 const overlay = el('stamp-overlay');
-let displayScale = 1, stampRevision = 0;
+let displayScale = 1,
+  stampRevision = 0;
 const input = (key: string) => el<HTMLInputElement>('stamp-' + key);
 try {
   const caption = localStorage.getItem('pdf-signer-stamp-caption');
-  if (caption !== null) input('caption').value = caption.slice(0, input('caption').maxLength);
-} catch { /* Storage is optional. */ }
+  if (caption !== null)
+    input('caption').value = caption.slice(0, input('caption').maxLength);
+} catch {
+  /* Storage is optional. */
+}
 input('caption').addEventListener('input', () => {
-  try { localStorage.setItem('pdf-signer-stamp-caption', input('caption').value); } catch { /* Storage is optional. */ }
+  try {
+    localStorage.setItem('pdf-signer-stamp-caption', input('caption').value);
+  } catch {
+    /* Storage is optional. */
+  }
 });
 function ownerName(subject: string) {
   const attributes = new Map<string, string>();
-  for (const match of subject.matchAll(/(?:^|,\s*)([\w.]+)\s*=\s*("(?:[^"]|"")*"|(?:\\.|[^,])*)/g)) {
-    attributes.set(match[1].toUpperCase(), match[2].trim().replace(/^"|"$/g, '').replace(/""/g, '"').replace(/\\(.)/g, '$1'));
+  for (const match of subject.matchAll(
+    /(?:^|,\s*)([\w.]+)\s*=\s*("(?:[^"]|"")*"|(?:\\.|[^,])*)/g,
+  )) {
+    attributes.set(
+      match[1].toUpperCase(),
+      match[2]
+        .trim()
+        .replace(/^"|"$/g, '')
+        .replace(/""/g, '"')
+        .replace(/\\(.)/g, '$1'),
+    );
   }
-  const personal = [attributes.get('SN') ?? attributes.get('SURNAME'), attributes.get('G') ?? attributes.get('GIVENNAME')].filter(Boolean).join(' ');
-  return personal || attributes.get('CN') || (attributes.size ? t("Owner name unavailable") : subject);
+  const personal = [
+    attributes.get('SN') ?? attributes.get('SURNAME'),
+    attributes.get('G') ?? attributes.get('GIVENNAME'),
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return (
+    personal ||
+    attributes.get('CN') ||
+    (attributes.size ? t('Owner name unavailable') : subject)
+  );
 }
 function stampSettings(): Stamp {
-  const cert = available.find(c => c.thumbprint === certificates.value);
-  return { page: Number(input('page').value), x: Number(input('x').value), y: Number(input('y').value), width: Number(input('width').value), height: Number(input('height').value), caption: input('caption').value, text: cert ? [ownerName(cert.subject), t("Serial: {0}", cert.serial), t("Valid: {0} – {1}", new Date(cert.validFrom).toLocaleDateString(locale), new Date(cert.validTo).toLocaleDateString(locale))].join('\n') : '' };
+  const cert = available.find((c) => c.thumbprint === certificates.value);
+  return {
+    page: Number(input('page').value),
+    x: Number(input('x').value),
+    y: Number(input('y').value),
+    width: Number(input('width').value),
+    height: Number(input('height').value),
+    caption: input('caption').value,
+    text: cert
+      ? [
+          ownerName(cert.subject),
+          t('Serial: {0}', cert.serial),
+          t(
+            'Valid: {0} – {1}',
+            new Date(cert.validFrom).toLocaleDateString(locale),
+            new Date(cert.validTo).toLocaleDateString(locale),
+          ),
+        ].join('\n')
+      : '',
+  };
 }
 async function validateStamp(stamp: Stamp) {
-  if (!document || !Number.isInteger(stamp.page) || stamp.page < 1 || stamp.page > document.numPages) throw new Error(t("Choose a valid stamp page."));
-  const viewport = (await document.getPage(stamp.page)).getViewport({ scale: 1 });
-  if (![stamp.x,stamp.y,stamp.width,stamp.height].every(Number.isFinite) || stamp.x < 0 || stamp.y < 0 || stamp.width < 1 || stamp.height < 1 || stamp.x + stamp.width > viewport.width + .001 || stamp.y + stamp.height > viewport.height + .001) throw new Error(t("Stamp must fit inside the selected visible page. Adjust position or size in points."));
+  if (
+    !document ||
+    !Number.isInteger(stamp.page) ||
+    stamp.page < 1 ||
+    stamp.page > document.numPages
+  )
+    throw new Error(t('Choose a valid stamp page.'));
+  const viewport = (await document.getPage(stamp.page)).getViewport({
+    scale: 1,
+  });
+  if (
+    ![stamp.x, stamp.y, stamp.width, stamp.height].every(Number.isFinite) ||
+    stamp.x < 0 ||
+    stamp.y < 0 ||
+    stamp.width < 1 ||
+    stamp.height < 1 ||
+    stamp.x + stamp.width > viewport.width + 0.001 ||
+    stamp.y + stamp.height > viewport.height + 0.001
+  )
+    throw new Error(
+      t(
+        'Stamp must fit inside the selected visible page. Adjust position or size in points.',
+      ),
+    );
   return viewport;
 }
 function positionStamp(stamp: Stamp) {
-  Object.assign(overlay.style, { left: `${stamp.x * displayScale}px`, top: `${stamp.y * displayScale}px`, width: `${stamp.width * displayScale}px`, height: `${stamp.height * displayScale}px`, borderRadius: `${Math.min(8, stamp.width / 2, stamp.height / 2) * displayScale}px` });
+  Object.assign(overlay.style, {
+    left: `${stamp.x * displayScale}px`,
+    top: `${stamp.y * displayScale}px`,
+    width: `${stamp.width * displayScale}px`,
+    height: `${stamp.height * displayScale}px`,
+    borderRadius: `${Math.min(8, stamp.width / 2, stamp.height / 2) * displayScale}px`,
+  });
 }
 async function previewStamp() {
   const revision = ++stampRevision;
   el('stamp-status').textContent = '';
-  if (!stampEnabled.checked || !source) { overlay.hidden = true; return; }
+  if (!stampEnabled.checked || !source) {
+    overlay.hidden = true;
+    return;
+  }
   const stamp = stampSettings();
   if (stamp.page !== page) overlay.hidden = true;
   let task: PDFDocumentLoadingTask | undefined;
@@ -355,29 +653,45 @@ async function previewStamp() {
     task = getDocument({ data: bytes });
     const pdf = await task.promise;
     const stampPage = await pdf.getPage(1);
-    const scale = Math.min(displayScale * 2, Math.sqrt(MAX_PIXELS / (stamp.width * stamp.height)));
+    const scale = Math.min(
+      displayScale * 2,
+      Math.sqrt(MAX_PIXELS / (stamp.width * stamp.height)),
+    );
     const viewport = stampPage.getViewport({ scale });
     const temporary = window.document.createElement('canvas');
-    temporary.width = Math.ceil(viewport.width); temporary.height = Math.ceil(viewport.height);
-    await stampPage.render({ canvas: temporary, viewport, background: 'rgba(0,0,0,0)' }).promise;
+    temporary.width = Math.ceil(viewport.width);
+    temporary.height = Math.ceil(viewport.height);
+    await stampPage.render({
+      canvas: temporary,
+      viewport,
+      background: 'rgba(0,0,0,0)',
+    }).promise;
     if (revision !== stampRevision) return;
     const target = el<HTMLCanvasElement>('stamp-preview');
-    target.width = temporary.width; target.height = temporary.height;
+    target.width = temporary.width;
+    target.height = temporary.height;
     target.getContext('2d')!.drawImage(temporary, 0, 0);
     positionStamp(stamp);
     overlay.hidden = stamp.page !== page;
-    el('stamp-status').textContent = t("Stamp on page {0}.", stamp.page);
+    el('stamp-status').textContent = t('Stamp on page {0}.', stamp.page);
   } catch (error) {
     if (revision === stampRevision) {
       // Text layout errors must leave the frame and resize handle editable.
       overlay.hidden = !validGeometry || stamp.page !== page;
       const preview = el<HTMLCanvasElement>('stamp-preview');
       preview.getContext('2d')?.clearRect(0, 0, preview.width, preview.height);
-      el('stamp-status').textContent = t(error instanceof Error ? error.message : String(error));
+      el('stamp-status').textContent = t(
+        error instanceof Error ? error.message : String(error),
+      );
     }
-  } finally { await task?.destroy(); }
+  } finally {
+    await task?.destroy();
+  }
 }
-function stampChanged() { invalidateSigning(); void previewStamp(); }
+function stampChanged() {
+  invalidateSigning();
+  void previewStamp();
+}
 let stampAddition = 0;
 stampEnabled.addEventListener('change', async () => {
   const addition = ++stampAddition;
@@ -386,75 +700,168 @@ stampEnabled.addEventListener('change', async () => {
   el<HTMLFieldSetElement>('stamp-fields').disabled = !stampEnabled.checked;
   invalidateSigning();
   const pdf = document;
-  if (!stampEnabled.checked || !pdf) { void previewStamp(); return; }
+  if (!stampEnabled.checked || !pdf) {
+    void previewStamp();
+    return;
+  }
   try {
     const lastPage = pdf.numPages;
     const viewport = (await pdf.getPage(lastPage)).getViewport({ scale: 1 });
-    if (addition !== stampAddition || document !== pdf || !stampEnabled.checked) return;
-    const left = Math.min(24, viewport.width / 10), bottom = Math.min(24, viewport.height / 10);
-    const width = Math.min(280, viewport.width - left * 2), height = Math.min(140, viewport.height - bottom * 2);
-    for (const [key, value] of Object.entries({ page: lastPage, x: left, y: viewport.height - bottom - height, width, height })) input(key).value = String(value);
+    if (addition !== stampAddition || document !== pdf || !stampEnabled.checked)
+      return;
+    const left = Math.min(24, viewport.width / 10),
+      bottom = Math.min(24, viewport.height / 10);
+    const width = Math.min(280, viewport.width - left * 2),
+      height = Math.min(140, viewport.height - bottom * 2);
+    for (const [key, value] of Object.entries({
+      page: lastPage,
+      x: left,
+      y: viewport.height - bottom - height,
+      width,
+      height,
+    }))
+      input(key).value = String(value);
     go(lastPage);
   } catch (error) {
-    if (addition === stampAddition && document === pdf) el('stamp-status').textContent = t(error instanceof Error ? error.message : String(error));
+    if (addition === stampAddition && document === pdf)
+      el('stamp-status').textContent = t(
+        error instanceof Error ? error.message : String(error),
+      );
   }
 });
 el('stamp-fields').addEventListener('input', stampChanged);
-input('page').addEventListener('change', () => { go(Number(input('page').value)); });
+input('page').addEventListener('change', () => {
+  go(Number(input('page').value));
+});
 async function finalPdf(current: { bytes: Uint8Array; name: string }) {
   if (!stampEnabled.checked) return current;
   const stamp = stampSettings();
   const viewport = await validateStamp(stamp);
-  return { bytes: await applyStamp(current.bytes, stamp, viewport.transform), name: current.name.replace(/\.pdf$/i, '') + '-stamped.pdf' };
+  return {
+    bytes: await applyStamp(current.bytes, stamp, viewport.transform),
+    name: current.name.replace(/\.pdf$/i, '') + '-stamped.pdf',
+  };
 }
 el('export-stamp').addEventListener('click', async () => {
   if (!source || signing) return;
   discardResult();
   const run = ++signingRun;
-  signing = true; signingControls();
+  signing = true;
+  signingControls();
   try {
     const result = await finalPdf(source);
     if (run !== signingRun) return;
-    const url = URL.createObjectURL(new Blob([new Uint8Array(result.bytes)], { type: 'application/pdf' }));
+    const url = URL.createObjectURL(
+      new Blob([new Uint8Array(result.bytes)], { type: 'application/pdf' }),
+    );
     downloads.push(url);
-    const link = window.document.createElement('a'); link.href = url; link.download = result.name; link.textContent = t("Download ") + result.name;
+    const link = window.document.createElement('a');
+    link.href = url;
+    link.download = result.name;
+    link.textContent = t('Download ') + result.name;
     el('downloads').append(link);
-    el('signing-status').textContent = t("Stamped PDF ready. No cryptographic signature was added.");
+    el('signing-status').textContent = t(
+      'Stamped PDF ready. No cryptographic signature was added.',
+    );
   } catch (error) {
-    if (run === signingRun) el('signing-status').textContent = t("Export failed: {0}", t(error instanceof Error ? error.message : String(error)));
-  } finally { if (run === signingRun) { signing = false; signingControls(); } }
+    if (run === signingRun)
+      el('signing-status').textContent = t(
+        'Export failed: {0}',
+        t(error instanceof Error ? error.message : String(error)),
+      );
+  } finally {
+    if (run === signingRun) {
+      signing = false;
+      signingControls();
+    }
+  }
 });
-let gesture: { id: number; x: number; y: number; stamp: Stamp; resize: boolean } | undefined;
-overlay.addEventListener('pointerdown', event => {
+let gesture:
+  | { id: number; x: number; y: number; stamp: Stamp; resize: boolean }
+  | undefined;
+overlay.addEventListener('pointerdown', (event) => {
   if (event.button !== 0) return;
-  event.preventDefault(); overlay.focus(); overlay.setPointerCapture(event.pointerId);
-  gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, stamp: stampSettings(), resize: event.target === el('stamp-resize') };
+  event.preventDefault();
+  overlay.focus();
+  overlay.setPointerCapture(event.pointerId);
+  gesture = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    stamp: stampSettings(),
+    resize: event.target === el('stamp-resize'),
+  };
 });
 function setGeometry(stamp: Stamp) {
-  const width = canvas.width ? parseFloat(canvas.style.width) / displayScale : 0;
-  const height = canvas.width ? parseFloat(canvas.style.height) / displayScale : 0;
-  stamp.x = Math.max(0, Math.min(width - 1, stamp.x)); stamp.y = Math.max(0, Math.min(height - 1, stamp.y));
-  stamp.width = Math.max(1, Math.min(width - stamp.x, stamp.width)); stamp.height = Math.max(1, Math.min(height - stamp.y, stamp.height));
-  for (const key of ['x','y','width','height'] as const) input(key).value = String(Math.floor(stamp[key] * 100) / 100);
-  invalidateSigning(); positionStamp(stamp);
+  const width = canvas.width
+    ? parseFloat(canvas.style.width) / displayScale
+    : 0;
+  const height = canvas.width
+    ? parseFloat(canvas.style.height) / displayScale
+    : 0;
+  stamp.x = Math.max(0, Math.min(width - 1, stamp.x));
+  stamp.y = Math.max(0, Math.min(height - 1, stamp.y));
+  stamp.width = Math.max(1, Math.min(width - stamp.x, stamp.width));
+  stamp.height = Math.max(1, Math.min(height - stamp.y, stamp.height));
+  for (const key of ['x', 'y', 'width', 'height'] as const)
+    input(key).value = String(Math.floor(stamp[key] * 100) / 100);
+  invalidateSigning();
+  positionStamp(stamp);
 }
-overlay.addEventListener('pointermove', event => {
+overlay.addEventListener('pointermove', (event) => {
   if (!gesture || gesture.id !== event.pointerId) return;
-  const stamp = { ...gesture.stamp }, dx = (event.clientX - gesture.x) / displayScale, dy = (event.clientY - gesture.y) / displayScale;
-  if (gesture.resize) { stamp.width += dx; stamp.height += dy; }
-  else { stamp.x = Math.min(parseFloat(canvas.style.width) / displayScale - stamp.width, stamp.x + dx); stamp.y = Math.min(parseFloat(canvas.style.height) / displayScale - stamp.height, stamp.y + dy); }
+  const stamp = { ...gesture.stamp },
+    dx = (event.clientX - gesture.x) / displayScale,
+    dy = (event.clientY - gesture.y) / displayScale;
+  if (gesture.resize) {
+    stamp.width += dx;
+    stamp.height += dy;
+  } else {
+    stamp.x = Math.min(
+      parseFloat(canvas.style.width) / displayScale - stamp.width,
+      stamp.x + dx,
+    );
+    stamp.y = Math.min(
+      parseFloat(canvas.style.height) / displayScale - stamp.height,
+      stamp.y + dy,
+    );
+  }
   setGeometry(stamp);
 });
-function endGesture() { if (gesture) { gesture = undefined; void previewStamp(); } }
-overlay.addEventListener('pointerup', endGesture); overlay.addEventListener('pointercancel', endGesture);
-overlay.addEventListener('keydown', event => {
-  if (!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key)) return;
+function endGesture() {
+  if (gesture) {
+    gesture = undefined;
+    void previewStamp();
+  }
+}
+overlay.addEventListener('pointerup', endGesture);
+overlay.addEventListener('pointercancel', endGesture);
+overlay.addEventListener('keydown', (event) => {
+  if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key))
+    return;
   event.preventDefault();
-  const stamp = stampSettings(), dx = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0, dy = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
-  if (event.shiftKey) { stamp.width += dx; stamp.height += dy; } else { stamp.x = Math.min(parseFloat(canvas.style.width) / displayScale - stamp.width, stamp.x + dx); stamp.y = Math.min(parseFloat(canvas.style.height) / displayScale - stamp.height, stamp.y + dy); }
-  setGeometry(stamp); void previewStamp();
+  const stamp = stampSettings(),
+    dx = event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0,
+    dy = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
+  if (event.shiftKey) {
+    stamp.width += dx;
+    stamp.height += dy;
+  } else {
+    stamp.x = Math.min(
+      parseFloat(canvas.style.width) / displayScale - stamp.width,
+      stamp.x + dx,
+    );
+    stamp.y = Math.min(
+      parseFloat(canvas.style.height) / displayScale - stamp.height,
+      stamp.y + dy,
+    );
+  }
+  setGeometry(stamp);
+  void previewStamp();
 });
-window.addEventListener('pagehide', () => { void clear(); });
+window.addEventListener('pagehide', () => {
+  void clear();
+});
 enhanceDropdowns();
 controls();
 void checkCryptoPro();

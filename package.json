@@ -3,6 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "format": "prettier . --write",
+    "format:check": "prettier . --check",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
@@ -23,6 +25,7 @@
     "@playwright/test": "1.65.0",
     "@types/node": "26.6.6",
     "eslint": "9.39.5",
+    "prettier": "3.9.10",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
     "vite": "8.3.7"
