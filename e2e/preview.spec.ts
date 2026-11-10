@@ -17,6 +17,48 @@ function pdf(pages = 1) {
 }
 const upload = (pages = 1, buffer = pdf(pages)) => ({ name: 'Preview.pdf', mimeType: 'application/pdf', buffer });
 
+async function chooseDropdown(page: import('@playwright/test').Page, id: string, name: string) {
+  await page.locator(`#${id}-trigger`).click();
+  await page.getByRole('option', { name, exact: true }).click();
+}
+
+test('custom dropdowns support keyboard, dismissal and certificate updates', async ({ page }) => {
+  await mockCryptoPro(page);
+  await page.goto('/');
+  await page.locator('#file').setInputFiles(upload());
+  await expect(page.locator('#status')).toContainText('Preview ready');
+  await expect(page.getByRole('combobox', { name: /Available certificates/ })).toBeDisabled();
+  const zoom = page.getByRole('combobox', { name: /Zoom/ });
+  await zoom.click();
+  await page.getByRole('option', { name: '150%', exact: true }).click();
+  await expect(zoom).toHaveText('150%');
+  await expect(page.locator('#zoom')).toHaveValue('1.5');
+  await zoom.press('ArrowDown');
+  await zoom.press('Home');
+  await zoom.press('Enter');
+  await expect(zoom).toHaveText('Fit width');
+  await zoom.click();
+  await zoom.press('Escape');
+  await expect(zoom).toHaveAttribute('aria-expanded', 'false');
+  const format = page.getByRole('combobox', { name: /Output format/ });
+  await format.click();
+  await format.press('End');
+  await format.press('Enter');
+  await expect(page.locator('#signing-mode')).toHaveValue('embedded');
+  await page.reload();
+  await page.locator('#file').setInputFiles(upload());
+  await expect(format).toHaveText('Embedded signature (.pdf)');
+  await format.click();
+  await page.locator('h1').click();
+  await expect(format).toHaveAttribute('aria-expanded', 'false');
+  await page.locator('#connect').click();
+  const certificate = page.getByRole('combobox', { name: /Available certificates/ });
+  await expect(certificate).toBeEnabled();
+  await expect(certificate).toHaveText('Test signer');
+  await certificate.click();
+  await expect(page.getByRole('option', { name: 'Test signer', exact: true })).toBeVisible();
+});
+
 test('local worker preview, navigation, zoom, reset, theme and mobile layout', async ({ page }) => {
   const failures: string[] = [];
   page.on('pageerror', error => failures.push(error.message));
@@ -31,10 +73,10 @@ test('local worker preview, navigation, zoom, reset, theme and mobile layout', a
   await page.locator('#page').fill('3'); await page.locator('#page').press('Tab');
   await expect(page.locator('#status')).toHaveText('Page 3 of 3. Preview ready.');
   await expect(page.locator('#next')).toBeDisabled();
-  await page.locator('#zoom').selectOption('2');
+  await chooseDropdown(page, 'zoom', '200%');
   await expect(page.locator('#status')).toHaveText('Page 3 of 3. Preview ready.');
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.locator('#zoom').selectOption('fit');
+  await chooseDropdown(page, 'zoom', 'Fit width');
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'artifacts/preview-mobile-dark.png', fullPage: true });
   await page.locator('#reset').click();
@@ -149,7 +191,7 @@ for (const rotation of [0, 90, 180, 270]) {
     await expect(page.locator('#stamp-x')).toHaveValue('25');
     await page.keyboard.press('Shift+ArrowDown');
     await expect(page.locator('#stamp-height')).toHaveValue('141');
-    await page.locator('#zoom').selectOption('1');
+    await chooseDropdown(page, 'zoom', '100%');
     await expect.poll(() => page.locator('#stamp-overlay').evaluate(e => parseFloat(e.style.left))).toBe(25);
     await expect(page.locator('#stamp-status')).toHaveText('Stamp on page 1.');
     const previewPixels = await page.locator('#stamp-preview').evaluate((source: HTMLCanvasElement) => {
@@ -165,7 +207,7 @@ for (const rotation of [0, 90, 180, 270]) {
     expect(exported.getPage(0).getCropBox()).toEqual(sheet.getCropBox());
     await page.locator('#file').setInputFiles(upload(1, Buffer.from(output)));
     await expect(page.locator('#status')).toContainText('Preview ready');
-    await page.locator('#zoom').selectOption('1');
+    await chooseDropdown(page, 'zoom', '100%');
     // Border must appear at the same visible top-left, regardless of CropBox/Rotate.
     await expect.poll(() => page.locator('#preview').evaluate((c: HTMLCanvasElement) => {
       const ratio = c.width / parseFloat(c.style.width);
@@ -198,7 +240,7 @@ test('undersized stamp stays editable and can be enlarged again', async ({ page 
   await page.locator('#file').setInputFiles(upload());
   await expect(page.locator('#status')).toContainText('Preview ready');
   await page.locator('#stamp-enabled').check();
-  await page.locator('#zoom').selectOption('1');
+  await chooseDropdown(page, 'zoom', '100%');
   await expect(page.locator('#stamp-status')).toHaveText('Stamp on page 1.');
   const overlay = page.locator('#stamp-overlay');
   await overlay.scrollIntoViewIfNeeded();
@@ -269,7 +311,7 @@ for (const stamp of [false, true]) {
       await page.locator('#stamp-enabled').check();
       await expect(page.locator('#stamp-status')).toContainText('Stamp on page');
     }
-    await page.locator('#signing-mode').selectOption('embedded');
+    await chooseDropdown(page, 'signing-mode', 'Embedded signature (.pdf)');
     await page.locator('#sign').click();
     await expect(page.locator('#signing-status')).toContainText('Embedded CAdES-BES verified');
     const links = page.locator('#downloads a');

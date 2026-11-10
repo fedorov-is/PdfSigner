@@ -4,6 +4,7 @@ import { CryptoPro } from './cryptopro.js';
 import { createDetached, deadline } from './detached.js';
 import { assertUnsigned, createEmbedded } from './embedded.js';
 import { applyStamp, stampPdf, type Stamp } from './stamp';
+import { enhanceDropdowns } from './dropdown';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
 const el = <T extends HTMLElement>(id: string) => window.document.getElementById(id) as T;
@@ -70,6 +71,7 @@ function controls() {
 async function clear() {
   source = undefined;
   stampEnabled.checked = false;
+  el('stamp-settings').hidden = true;
   el<HTMLFieldSetElement>('stamp-fields').disabled = true;
   overlay.hidden = true;
   stampRevision++;
@@ -92,6 +94,7 @@ async function clear() {
   fileInput.value = '';
   page = 1;
   zoom.value = 'fit';
+  zoom.dispatchEvent(new Event('change'));
   controls();
   if (old) await old.destroy().catch(() => {});
 }
@@ -201,7 +204,7 @@ let available: { thumbprint: string; subject: string; issuer: string; validFrom:
 certificates.addEventListener('change', () => {
   invalidateSigning();
   const cert = available.find(item => item.thumbprint === certificates.value);
-  el('certificate-details').textContent = cert ? `Issuer: ${cert.issuer}. Serial: ${cert.serial}. Valid from ${new Date(cert.validFrom).toLocaleDateString()} until ${new Date(cert.validTo).toLocaleDateString()}. Key algorithm: ${cert.algorithm}.` : '';
+  el('certificate-details').textContent = cert ? `${ownerName(cert.subject)}. Valid: ${new Date(cert.validFrom).toLocaleDateString()} – ${new Date(cert.validTo).toLocaleDateString()}.` : '';
   void previewStamp();
 });
 el('connect').addEventListener('click', async () => {
@@ -227,7 +230,7 @@ el('connect').addEventListener('click', async () => {
     const connected = await CryptoPro.connect();
     adapter = connected;
     available = await connected.certificates();
-    for (const cert of available) certificates.add(new Option(cert.subject, cert.thumbprint));
+    for (const cert of available) certificates.add(new Option(ownerName(cert.subject), cert.thumbprint));
     certificates.disabled = !available.length;
     certificates.dispatchEvent(new Event('change'));
     el('readiness-status').textContent = `Plug-in ${connected.pluginVersion}; CSP ${connected.cspVersion}. ${available.length} time-valid certificate(s) with private keys. Key access is confirmed only by signing.`;
@@ -357,6 +360,7 @@ let stampAddition = 0;
 stampEnabled.addEventListener('change', async () => {
   const addition = ++stampAddition;
   if (!source) stampEnabled.checked = false;
+  el('stamp-settings').hidden = !stampEnabled.checked;
   el<HTMLFieldSetElement>('stamp-fields').disabled = !stampEnabled.checked;
   invalidateSigning();
   const pdf = document;
@@ -429,4 +433,5 @@ overlay.addEventListener('keydown', event => {
   setGeometry(stamp); void previewStamp();
 });
 window.addEventListener('pagehide', () => { void clear(); });
+enhanceDropdowns();
 controls();
