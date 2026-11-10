@@ -431,3 +431,34 @@ for (const stamp of [false, true]) {
     await expect(links).toHaveCount(0);
   });
 }
+
+test('Russian localization covers preview, stamps, lab and saved language choice', async ({ page }) => {
+  await page.goto('/?lang=ru');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+  await expect(page.locator('#drop-zone h2')).toHaveText('Откройте PDF для начала работы');
+  await page.locator('#file').setInputFiles(upload(2));
+  await expect(page.locator('#status')).toHaveText('Страница 1 из 2. Предпросмотр готов.');
+  await expect(page.locator('#preview')).toHaveAttribute('aria-label', 'Страница 1 из 2. Визуальный предпросмотр.');
+  await page.getByRole('button', { name: 'Следующая страница', exact: true }).click();
+  await expect(page.locator('#status')).toHaveText('Страница 2 из 2. Предпросмотр готов.');
+  await page.locator('#stamp-enabled').check();
+  await expect(page.locator('#stamp-caption')).toHaveValue('Штамп документа');
+  await expect(page.locator('#stamp-status')).toHaveText('Штамп на странице 2.');
+  await chooseDropdown(page, 'language', 'English');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await chooseDropdown(page, 'language', 'Русский');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+  await page.goto('/lab.html');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+  await expect(page.locator('#connect')).toHaveText('Проверить модуль и сертификаты');
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+});
+
+test('Russian browser preference is detected without a saved choice', async ({ browser }) => {
+  const context = await browser.newContext({ locale: 'ru-RU' });
+  const page = await context.newPage();
+  await page.goto('/');
+  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
+  await context.close();
+});

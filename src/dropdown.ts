@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 // Keep the select as the source of truth for the existing application events.
 export function enhanceDropdowns() {
   for (const select of document.querySelectorAll('select')) {
@@ -21,7 +22,7 @@ export function enhanceDropdowns() {
     menu.id = `${select.id}-menu`;
     menu.popover = 'manual';
     menu.setAttribute('role', 'listbox');
-    menu.setAttribute('aria-label', label?.textContent || 'Options');
+    menu.setAttribute('aria-label', label?.textContent || t("Options"));
     trigger.setAttribute('aria-controls', menu.id);
     select.before(wrapper);
     wrapper.append(select, trigger, menu);
@@ -48,7 +49,7 @@ export function enhanceDropdowns() {
       }
     };
     const sync = () => {
-      trigger.textContent = select.selectedOptions[0]?.textContent || 'Choose an option';
+      trigger.textContent = select.selectedOptions[0]?.textContent || t("Choose an option");
       trigger.disabled = select.disabled;
       menu.replaceChildren(...Array.from(select.options, (option, index) => {
         const item = document.createElement('div');

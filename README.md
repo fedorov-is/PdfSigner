@@ -192,3 +192,7 @@ Implementation and automated checks are documented in [stamp editor notes](docs/
 - [pdf-lib documentation](https://pdf-lib.js.org/)
 
 These references guide implementation; library selection and signature-profile compatibility remain subject to the feasibility checks above.
+
+### Language
+
+Use **English / Русский** in the header to select the interface language. Russian is selected automatically for Russian browser preferences unless a language has been saved. The choice is shared with the signing lab. Switching languages reloads the page; reopen any local document afterward. You can also use `?lang=ru` or `?lang=en` in the URL. Translations are maintained in `src/ru.json`; unknown third-party diagnostic messages remain in their original language.

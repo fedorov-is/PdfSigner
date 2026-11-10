@@ -1,3 +1,4 @@
+import { t } from './i18n.js';
 import { PDFDocument, rgb, pushGraphicsState, popGraphicsState, concatTransformationMatrix } from 'pdf-lib';
 import fontkit from '@pdf-lib/fontkit';
 
@@ -5,7 +6,7 @@ export type Stamp = { page: number; x: number; y: number; width: number; height:
 const fontBytes = new Map<string, Promise<ArrayBuffer>>();
 async function font(name: string) {
   if (!fontBytes.has(name)) fontBytes.set(name, fetch(`${import.meta.env.BASE_URL}fonts/${name}.ttf`).then(r => {
-    if (!r.ok) throw new Error('Could not load the local stamp font');
+    if (!r.ok) throw new Error(t("Could not load the local stamp font"));
     return r.arrayBuffer();
   }).catch(error => { fontBytes.delete(name); throw error; }));
   return fontBytes.get(name)!;
@@ -16,7 +17,7 @@ export async function stampPdf(stamp: Stamp) {
   const face = await pdf.embedFont(await font('NotoSans'), { subset: true });
   const bold = await pdf.embedFont(await font('NotoSans-Bold'), { subset: true });
   const supported = new Set(face.getCharacterSet());
-  if ([...stamp.caption + stamp.text].some(c => c !== '\n' && !supported.has(c.codePointAt(0)!))) throw new Error('Stamp contains characters unavailable in Noto Sans');
+  if ([...stamp.caption + stamp.text].some(c => c !== '\n' && !supported.has(c.codePointAt(0)!))) throw new Error(t("Stamp contains characters unavailable in Noto Sans"));
   const wrap = (text: string, font: typeof face, size: number) => text ? text.split('\n').flatMap(paragraph => {
     const result: string[] = [];
     let line = '';
@@ -31,7 +32,7 @@ export async function stampPdf(stamp: Stamp) {
     if ([...stamp.caption + stamp.text].some(c => c !== '\n' && Math.max(face.widthOfTextAtSize(c, size), bold.widthOfTextAtSize(c, size)) > stamp.width - 16)) return false;
     return (wrap(stamp.caption, bold, size).length + wrap(stamp.text, face, size).length) * size * 1.4 + gap <= stamp.height - 16;
   };
-  if (!fits(5)) throw new Error('Text does not fit. Enlarge the stamp or shorten its text.');
+  if (!fits(5)) throw new Error(t("Text does not fit. Enlarge the stamp or shorten its text."));
   // Find the largest font that fits both dimensions, including wrapped lines.
   let low = 5, high = Math.max(5, (stamp.height - 16 - gap) / 1.4);
   for (let i = 0; i < 16; i++) {

@@ -1,13 +1,117 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="icon" type="image/svg+xml" href="./favicon.svg"><title>PDF Signer</title><link rel="stylesheet" href="./styles.css"></head>
-<body><header class="topbar"><div class="topbar-inner"><h1>PDF Signer</h1><span class="hint">Local document workspace</span><a href="./lab.html">Signing lab</a></div></header>
-<main>
-<section id="readiness" class="panel readiness" hidden><div><h2>CryptoPro readiness</h2><p id="readiness-status" role="status">Checking CryptoPro...</p></div><button id="connect" class="secondary">Check CryptoPro</button></section>
-<section id="drop-zone" class="panel drop-zone"><div class="document-icon" aria-hidden="true">PDF</div><h2>Open a PDF to get started</h2><p>Drop a file here or choose one from your device.</p><label class="file-button" for="file">Choose PDF<input id="file" type="file" accept="application/pdf,.pdf"></label><p class="hint">PDF only · up to 20 MiB and 500 pages · files stay on your device</p></section>
-<p id="status" class="status" role="status" aria-live="polite">No document loaded.</p>
-<div id="workspace" class="workspace" hidden><section class="viewer" aria-label="PDF preview">
-<div class="document-bar"><strong id="filename"></strong><button id="reset" class="secondary">Close document</button></div>
-<div class="toolbar" aria-label="Preview controls"><button id="previous" class="secondary" aria-label="Previous page">←</button><label for="page">Page</label><input id="page" type="number" min="1" value="1" inputmode="numeric"><span id="page-count"></span><button id="next" class="secondary" aria-label="Next page">→</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit width</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option></select></div>
-<div id="canvas-container" class="canvas-container" tabindex="0" aria-label="Scrollable PDF preview"><div id="page-surface"><canvas id="preview" role="img" aria-label="PDF page preview"></canvas><div id="stamp-overlay" hidden tabindex="0" role="group" aria-label="Visible stamp. Arrow keys move; Shift and arrow keys resize."><canvas id="stamp-preview"></canvas><button id="stamp-resize" aria-label="Resize stamp" tabindex="-1"></button></div></div></div></section>
-<aside class="panel settings"><h2>Document</h2><dl><dt>File size</dt><dd id="file-size"></dd><dt>Pages</dt><dd id="total-pages"></dd></dl><p class="hint">Preview does not validate digital signatures.</p><hr><h2>Signing certificate</h2><label for="certificate">Available certificates</label><select id="certificate" disabled><option>Checking CryptoPro...</option></select><p id="certificate-details" class="hint"></p><hr><h2>Visible stamp</h2><label><input id="stamp-enabled" type="checkbox"> Add visible stamp</label><div id="stamp-settings" hidden><fieldset id="stamp-fields" disabled><label for="stamp-page">Stamp page</label><input id="stamp-page" type="number" min="1" value="1"><label for="stamp-caption">Caption / organization</label><input id="stamp-caption" maxlength="300" value="Document stamp"><div class="stamp-grid"><label>Left (pt)<input id="stamp-x" type="number" min="0" step="1" value="24"></label><label>Top (pt)<input id="stamp-y" type="number" min="0" step="1" value="24"></label><label>Width (pt)<input id="stamp-width" type="number" min="1" step="1" value="280"></label><label>Height (pt)<input id="stamp-height" type="number" min="1" step="1" value="140"></label></div></fieldset><p class="hint">Drag to move or resize the corner. Arrow keys move by 1 pt; Shift + arrows resize. A stamp alone is not a digital signature.</p><p id="stamp-status" role="status"></p><button id="export-stamp" class="secondary" disabled>Export stamped PDF</button></div><hr><h2>Sign document</h2><label for="signing-mode">Output format</label><select id="signing-mode"><option value="detached">Separate signature (.sig)</option><option value="embedded">Embedded signature (.pdf)</option></select><p class="hint">Separate mode downloads the PDF and DER signature. Embedded mode downloads one signed PDF with an invisible signature field. The optional stamp is included before signing.</p><button id="sign" disabled>Sign PDF</button> <button id="cancel-sign" class="secondary" hidden>Cancel signing</button><p id="signing-status" role="status" aria-live="polite"></p><div id="downloads"></div></aside></div>
-</main><footer class="footer"><div class="footer-inner"><span>Documents are processed in browser memory.</span><label class="theme-switch"><span>Dark theme</span><input id="theme" type="checkbox" role="switch"><span class="slider" aria-hidden="true"></span></label></div></footer><script type="module" src="./src/main.ts"></script></body></html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <title>PDF Signer</title>
+    <link rel="stylesheet" href="./styles.css">
+</head>
+
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <h1>PDF Signer</h1><span class="hint">Local document workspace</span>
+            <a href="./lab.html">Signing lab</a>
+            <select id="language" aria-label="English / Русский">
+                <option value="en">English</option>
+                <option value="ru">Русский</option>
+            </select>
+        </div>
+    </header>
+    <main>
+        <section id="readiness" class="panel readiness" hidden>
+            <div>
+                <h2>CryptoPro readiness</h2>
+                <p id="readiness-status" role="status">Checking CryptoPro...</p>
+            </div><button id="connect" class="secondary">Check CryptoPro</button>
+        </section>
+        <section id="drop-zone" class="panel drop-zone">
+            <div class="document-icon" aria-hidden="true">PDF</div>
+            <h2>Open a PDF to get started</h2>
+            <p>Drop a file here or choose one from your device.</p><label class="file-button" for="file">Choose
+                PDF<input id="file" type="file" accept="application/pdf,.pdf"></label>
+            <p class="hint">PDF only · up to 20 MiB and 500 pages · files stay on your device</p>
+        </section>
+        <p id="status" class="status" role="status" aria-live="polite">No document loaded.</p>
+        <div id="workspace" class="workspace" hidden>
+            <section class="viewer" aria-label="PDF preview">
+                <div class="document-bar"><strong id="filename"></strong><button id="reset" class="secondary">Close
+                        document</button></div>
+                <div class="toolbar" aria-label="Preview controls"><button id="previous" class="secondary"
+                        aria-label="Previous page">←</button><label for="page">Page</label><input id="page"
+                        type="number" min="1" value="1" inputmode="numeric"><span id="page-count"></span><button
+                        id="next" class="secondary" aria-label="Next page">→</button><label
+                        for="zoom">Zoom</label><select id="zoom">
+                        <option value="fit">Fit width</option>
+                        <option value="0.5">50%</option>
+                        <option value="0.75">75%</option>
+                        <option value="1">100%</option>
+                        <option value="1.5">150%</option>
+                        <option value="2">200%</option>
+                    </select></div>
+                <div id="canvas-container" class="canvas-container" tabindex="0" aria-label="Scrollable PDF preview">
+                    <div id="page-surface"><canvas id="preview" role="img" aria-label="PDF page preview"></canvas>
+                        <div id="stamp-overlay" hidden tabindex="0" role="group"
+                            aria-label="Visible stamp. Arrow keys move; Shift and arrow keys resize."><canvas
+                                id="stamp-preview"></canvas><button id="stamp-resize" aria-label="Resize stamp"
+                                tabindex="-1"></button></div>
+                    </div>
+                </div>
+            </section>
+            <aside class="panel settings">
+                <h2>Document</h2>
+                <dl>
+                    <dt>File size</dt>
+                    <dd id="file-size"></dd>
+                    <dt>Pages</dt>
+                    <dd id="total-pages"></dd>
+                </dl>
+                <p class="hint">Preview does not validate digital signatures.</p>
+                <hr>
+                <h2>Signing certificate</h2><label for="certificate">Available certificates</label><select
+                    id="certificate" disabled>
+                    <option>Checking CryptoPro...</option>
+                </select>
+                <p id="certificate-details" class="hint"></p>
+                <hr>
+                <h2>Visible stamp</h2><label><input id="stamp-enabled" type="checkbox"> Add visible stamp</label>
+                <div id="stamp-settings" hidden>
+                    <fieldset id="stamp-fields" disabled><label for="stamp-page">Stamp page</label><input
+                            id="stamp-page" type="number" min="1" value="1"><label for="stamp-caption">Caption /
+                            organization</label><input id="stamp-caption" maxlength="300" value="Document stamp">
+                        <div class="stamp-grid"><label>Left (pt)<input id="stamp-x" type="number" min="0" step="1"
+                                    value="24"></label><label>Top (pt)<input id="stamp-y" type="number" min="0" step="1"
+                                    value="24"></label><label>Width (pt)<input id="stamp-width" type="number" min="1"
+                                    step="1" value="280"></label><label>Height (pt)<input id="stamp-height"
+                                    type="number" min="1" step="1" value="140"></label></div>
+                    </fieldset>
+                    <p class="hint">Drag to move or resize the corner. Arrow keys move by 1 pt; Shift + arrows resize. A
+                        stamp alone is not a digital signature.</p>
+                    <p id="stamp-status" role="status"></p><button id="export-stamp" class="secondary" disabled>Export
+                        stamped PDF</button>
+                </div>
+                <hr>
+                <h2>Sign document</h2><label for="signing-mode">Output format</label><select id="signing-mode">
+                    <option value="detached">Separate signature (.sig)</option>
+                    <option value="embedded">Embedded signature (.pdf)</option>
+                </select>
+                <p class="hint">Separate mode downloads the PDF and DER signature. Embedded mode downloads one signed
+                    PDF with an invisible signature field. The optional stamp is included before signing.</p><button
+                    id="sign" disabled>Sign PDF</button> <button id="cancel-sign" class="secondary" hidden>Cancel
+                    signing</button>
+                <p id="signing-status" role="status" aria-live="polite"></p>
+                <div id="downloads"></div>
+            </aside>
+        </div>
+    </main>
+    <footer class="footer">
+        <div class="footer-inner"><span>Documents are processed in browser memory.</span><label
+                class="theme-switch"><span>Dark theme</span><input id="theme" type="checkbox" role="switch"><span
+                    class="slider" aria-hidden="true"></span></label></div>
+    </footer>
+    <script type="module" src="./src/main.ts"></script>
+</body>
+
+</html>
