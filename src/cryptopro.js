@@ -1,7 +1,7 @@
 import { toBase64 } from './binary.js';
 
 export class CryptoPro {
-  constructor(api) { this.api = api; }
+  constructor(api) { this.api = api; this.pluginVersion = ''; this.cspVersion = ''; }
   static async connect() {
     if (!globalThis.cadesplugin) throw new Error('Official bridge missing. See vendor/README.md.');
     let timer;
