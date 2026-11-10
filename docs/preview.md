@@ -1,6 +1,6 @@
 # Milestone 2: static shell and PDF preview
 
-Implemented on 2026-11-10. The main page is a TypeScript/Vite static app; the original feasibility harness remains at `lab.html`. No hosted Site was created: this milestone targets the existing local repository and a deployable static build.
+Implemented on 2026-11-10. The main page is a TypeScript/Vite static app; No hosted Site was created: this milestone targets the existing local repository and a deployable static build.
 
 ## Commands and hosting
 
@@ -12,7 +12,7 @@ Use Node.js 22.13+ (24 recommended), then `npm.cmd ci`, `npm.cmd run dev`.
 - `npm.cmd test`: existing binary/signing adapter/fixture unit tests.
 - `npm.cmd run test:e2e`: production-build browser tests using installed Google Chrome. Run the build first. No CryptoPro installation or test key is needed for preview tests.
 
-Upload the **contents** of `dist/` to static hosting over HTTPS. Relative asset paths support subdirectory hosting. Serve `.js` and `.mjs` as JavaScript and `.wasm` as `application/wasm`. Do not use `file://`. The CryptoPro bridge is intentionally a classic script; Vite's lab-page warning is expected, and the build copies it unchanged into `dist/vendor/`.
+Upload the **contents** of `dist/` to static hosting over HTTPS. Relative asset paths support subdirectory hosting. Serve `.js` and `.mjs` as JavaScript and `.wasm` as `application/wasm`. Do not use `file://`. The CryptoPro bridge is intentionally a classic script; the build copies it unchanged into `dist/vendor/`.
 
 PDF.js 6.5.438 is pinned in the lockfile. Its renderer, matching worker, CMaps, standard fonts, WASM resources and Apache-2.0 license are packaged locally. No PDF data is sent to a server. PDF.js reference: https://mozilla.github.io/pdf.js/getting_started/. The CryptoPro bridge loads only on an explicit readiness check on the main page. Certificate enumeration can request native access. Only the theme preference is stored; documents and certificate details are not persisted.
 
@@ -39,4 +39,4 @@ The 501-page and 20 MiB + 1 byte fixtures were rejected. These are synthetic bou
 - Mobile dark-theme screenshot inspected at 375 px; no horizontal document overflow.
 - Runtime dependency audit reports zero vulnerabilities. The development-only TypeScript ESLint dependency tree currently reports seven moderate advisories through minimatch; these packages are not in the deployed output. Revisit when upstream publishes compatible patched dependency ranges.
 
-Manual follow-up remains for real native CryptoPro readiness on the new shell, password-protected PDFs from target tools, image-heavy/rotated/Cyrillic PDF samples, additional browsers and assistive technology. The signing lab's cryptographic behavior is preserved; this milestone does not establish new signing compatibility.
+Manual follow-up remains for real native CryptoPro readiness on the new shell, password-protected PDFs from target tools, image-heavy/rotated/Cyrillic PDF samples, additional browsers and assistive technology. Independent signing compatibility checks remain required.

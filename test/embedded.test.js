@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { PDFDocument, PDFName, PDFString } from 'pdf-lib';
 import { prepareEmbedded, createEmbedded, extractEmbedded, assertUnsigned } from '../src/embedded.js';
-import { embedCms, coveredBytes } from '../src/fixture.js';
+import { embedCms, coveredBytes } from '../src/pdf-signature.js';
 import { fromBase64, toBase64 } from '../src/binary.js';
 
 async function input() {

@@ -1,6 +1,6 @@
 import { PDFDocument, PDFDict, PDFName, PDFArray, PDFString, PDFHexString } from 'pdf-lib';
 import { fromBase64, toBase64 } from './binary.js';
-import { coveredBytes, embedCms } from './fixture.js';
+import { coveredBytes, embedCms } from './pdf-signature.js';
 
 const name = PDFName.of;
 const marker = '0'.repeat(48);

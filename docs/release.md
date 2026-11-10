@@ -99,7 +99,7 @@ invisible field, with no timestamp, incremental signatures or long-term validati
 
 For readiness failures check native installation, extension enablement and site
 access, then retry explicitly. A harmless older-extension probe may fail before
-the current extension connects; see [feasibility troubleshooting](feasibility.md).
+the current extension connects. Keep the official bridge unchanged.
 For signature failure check certificate dates, key access and token connection.
 Cancellation discards output but cannot dismiss a native operation already running.
 For CSP errors check the served headers against the generated policy; do not add

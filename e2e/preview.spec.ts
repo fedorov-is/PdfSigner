@@ -432,7 +432,7 @@ for (const stamp of [false, true]) {
   });
 }
 
-test('Russian localization covers preview, stamps, lab and saved language choice', async ({ page }) => {
+test('Russian localization covers preview, stamps and saved language choice', async ({ page }) => {
   await page.goto('/?lang=ru');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   await expect(page.locator('#drop-zone h2')).toHaveText('Откройте PDF для начала работы');
@@ -448,9 +448,6 @@ test('Russian localization covers preview, stamps, lab and saved language choice
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
   await chooseDropdown(page, 'language', 'Русский');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-  await page.goto('/lab.html');
-  await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
-  await expect(page.locator('#connect')).toHaveText('Проверить модуль и сертификаты');
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
 });

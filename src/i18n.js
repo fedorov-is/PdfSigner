@@ -19,7 +19,8 @@ export function initLocalization() {
     const node = walker.currentNode;
     if (node.parentElement?.closest('script, style, code')) continue;
     const text = node.textContent.trim();
-    if (text in ru) node.textContent = node.textContent.replace(text, t(text));
+    const key = text.replace(/\s+/g, ' ');
+    if (key in ru) node.textContent = node.textContent.replace(text, t(key));
   }
   for (const element of document.querySelectorAll('[aria-label]')) {
     element.setAttribute('aria-label', t(element.getAttribute('aria-label')));

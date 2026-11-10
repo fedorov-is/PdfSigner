@@ -21,5 +21,4 @@ export default defineConfig({
       try { res.setHeader('Content-Type', path.endsWith('.wasm') ? 'application/wasm' : 'application/octet-stream'); res.end(await readFile(resolve('node_modules/pdfjs-dist', `.${path}`))); } catch { next(); }
     });
   } }],
-  build: { rollupOptions: { input: { main: resolve('index.html'), lab: resolve('lab.html') } } },
 });

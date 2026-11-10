@@ -17,7 +17,7 @@ Automated tests cover binary preservation and DER decoding, verification failure
 For manual acceptance with real CryptoPro:
 
 1. Sign a PDF from the main workspace and download both files. Compare the downloaded PDF byte for byte with the source.
-2. Verify the pair with an independently configured GOST-capable CMS verifier following [the feasibility protocol](feasibility.md#independent-verification-protocol). Record verifier/version, algorithm, integrity and trust/revocation results separately.
+2. Verify the pair with an independently configured GOST-capable CMS verifier following [the release verification checklist](release.md). Record verifier/version, algorithm, integrity and trust/revocation results separately.
 3. Change one byte in a PDF copy and confirm that verification with the original `.sig` fails.
 4. Repeat with native access denied, PIN cancellation, a removed token, an expired certificate and unavailable validation services. Confirm that no successful output appears.
 5. Cancel or replace the document while a native dialog is pending, then finish that dialog. Confirm no late download links appear.

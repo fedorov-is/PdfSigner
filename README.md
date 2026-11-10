@@ -1,16 +1,15 @@
 # PDF Signer
 
-A planned static web application for signing PDF files in the browser using **CryptoPro CSP and CryptoPro ЭЦП Browser plug-in**. Users will be able to create a separate signature file, embed a digital signature into a PDF, and place a visible stamp on a document before signing.
+A static web application for signing PDF files locally in the browser using CryptoPro CSP and the CryptoPro Browser plug-in.
 
-**Status:** the current feasibility version is working. On 2026-11-10, the user confirmed that the official bridge was added, signing works correctly, and generated signatures pass validation. The static shell and local PDF preview are implemented; the visible stamp editor and stamped detached output are implemented; embedded signing for supported unsigned PDFs is implemented, with independent reader acceptance still pending. See [embedded signing notes](docs/embedded.md). See [stamp editor notes](docs/stamp.md). See [the preview implementation notes](docs/preview.md).
+**Status:** PDF preview, visible stamps, detached signing and embedded signing are implemented. Independent reader acceptance remains pending; see [release notes](docs/release.md).
 
 ## Run the application
 
 Use Node.js 22.13+ (24 recommended). Run `npm.cmd ci` first. The official CryptoPro JavaScript bridge is included at `vendor/cadesplugin_api.js` (JS module version 2.4.5); native CryptoPro components and the browser extension must also be installed. Run `npm.cmd test` and `npm.cmd run dev` on Windows, then open `http://127.0.0.1:5173`. Run `npm.cmd run build` for static output in `dist/`, `npm.cmd run lint` for linting, and `npm.cmd run test:e2e` for Chrome preview checks after building. On other systems use `npm test` and `npm run dev`.
 
-The main page previews PDFs and creates verified detached or embedded CAdES-BES signatures; open **Signing lab** (`lab.html`) for the preserved feasibility harness. The local harness checks native API readiness, lists certificates, signs/verifies exact PDF bytes, and assembles an embedded signature in a generated fixture. See [the feasibility report](docs/feasibility.md) for the successful user test, observed versions, format decisions, dependency evaluation and reproducible verification steps. Exact browser/certificate/verifier details still need to be recorded before publishing a broader compatibility matrix or claiming a specific PAdES profile.
+The main page previews PDFs and creates verified detached or embedded CAdES-BES signatures. See [release notes](docs/release.md) for installation, compatibility and verification requirements.
 
-The bridge can log `GET chrome-extension://invalid/ net::ERR_FAILED` while probing the older extension before loading the newer one. This fallback is harmless when readiness, signing and validation succeed; keep the official bridge unchanged. See [troubleshooting](docs/feasibility.md#extension-fallback-console-error).
 
 ## Goals
 
@@ -75,7 +74,7 @@ Keep the first screen focused on opening a PDF and checking CryptoPro readiness.
 
 ## Proposed architecture
 
-Use TypeScript with a lightweight static build, provisionally Vite and native DOM components. No server-side signing endpoint is planned. Final dependencies and versions will be selected in the feasibility milestone, including license and browser compatibility review.
+Use TypeScript with a lightweight static build, provisionally Vite and native DOM components. No server-side signing endpoint is planned. Dependencies are pinned and packaged locally; distribution and browser compatibility review remain release requirements.
 
 | Component | Responsibility |
 | --- | --- |
@@ -101,19 +100,6 @@ PDF.js is a rendering candidate; a PDF editing library such as pdf-lib is a cand
 ## Implementation roadmap
 
 Each milestone has an acceptance gate. Embedded signing remains a required project feature even if the first usable release ships detached signing earlier.
-
-### 1. Validate CryptoPro and PDF signing feasibility
-
-- [ ] Record a tested OS/browser/CSP/plug-in matrix and obtain suitable test certificates, including supported GOST variants.
-- [x] Build a minimal bridge experiment: readiness, certificate selection, signing exact binary data, and verification. User confirmed working signing and successful validation on 2026-11-10.
-- [x] Choose the detached encoding, filename convention, and initial signature profile: DER CMS, `<filename>.sig`, CAdES-BES.
-- [ ] Prove browser-only embedded signing on a small fixture: prepare byte ranges, create CMS through CryptoPro, embed it, and verify with an independent GOST-capable PDF verifier.
-- [ ] Evaluate PDF rendering/editing/signing dependencies, licenses, bridge distribution terms, font licenses, and static asset packaging.
-- [x] Record the current PDF subset and target verifiers in the feasibility report. Production PDF library selection remains open.
-
-**Acceptance:** reproducible detached and embedded proof-of-concept outputs validate independently; remaining compatibility restrictions are documented.
-
-**Current result:** the user reports the current version works and signatures pass validation. The detailed per-mode independent-verifier evidence and GOST/browser matrix have not yet been recorded; unchecked items above track that follow-up and the remaining distribution review.
 
 ### 2. Build the static shell and PDF preview
 
@@ -191,8 +177,8 @@ Implementation and automated checks are documented in [stamp editor notes](docs/
 - [PDF.js project and documentation](https://mozilla.github.io/pdf.js/)
 - [pdf-lib documentation](https://pdf-lib.js.org/)
 
-These references guide implementation; library selection and signature-profile compatibility remain subject to the feasibility checks above.
+These references guide implementation; library selection and signature-profile compatibility remain subject to the release verification checks.
 
 ### Language
 
-Use **English / Русский** in the header to select the interface language. Russian is selected automatically for Russian browser preferences unless a language has been saved. The choice is shared with the signing lab. Switching languages reloads the page; reopen any local document afterward. You can also use `?lang=ru` or `?lang=en` in the URL. Translations are maintained in `src/ru.json`; unknown third-party diagnostic messages remain in their original language.
+Use **English / Русский** in the header to select the interface language. Russian is selected automatically for Russian browser preferences unless a language has been saved. The choice is saved across visits. Switching languages reloads the page; reopen any local document afterward. You can also use `?lang=ru` or `?lang=en` in the URL. Translations are maintained in `src/ru.json`; unknown third-party diagnostic messages remain in their original language.
