@@ -2,7 +2,15 @@
 
 A planned static web application for signing PDF files in the browser using **CryptoPro CSP and CryptoPro ЭЦП Browser plug-in**. Users will be able to create a separate signature file, embed a digital signature into a PDF, and place a visible stamp on a document before signing.
 
-**Status:** planning. This repository currently contains the project description and implementation roadmap; the application has not been implemented yet.
+**Status:** the current feasibility version is working. On 2026-11-10, the user confirmed that the official bridge was added, signing works correctly, and generated signatures pass validation. The production PDF preview, stamp editor, and arbitrary-PDF embedded signing remain later milestones.
+
+## Run the feasibility harness
+
+Use Node.js 22+. The official CryptoPro JavaScript bridge is included at `vendor/cadesplugin_api.js` (JS module version 2.4.5); native CryptoPro components and the browser extension must also be installed. Run `npm.cmd test` and `npm.cmd run dev` on Windows, then open `http://127.0.0.1:5173`. No dependency installation is required. On other systems use `npm test` and `npm run dev`.
+
+The local harness checks native API readiness, lists certificates, signs/verifies exact PDF bytes, and assembles an embedded signature in a generated fixture. See [the feasibility report](docs/feasibility.md) for the successful user test, observed versions, format decisions, dependency evaluation and reproducible verification steps. Exact browser/certificate/verifier details still need to be recorded before publishing a broader compatibility matrix or claiming a specific PAdES profile.
+
+The bridge can log `GET chrome-extension://invalid/ net::ERR_FAILED` while probing the older extension before loading the newer one. This fallback is harmless when readiness, signing and validation succeed; keep the official bridge unchanged. See [troubleshooting](docs/feasibility.md#extension-fallback-console-error).
 
 ## Goals
 
@@ -97,13 +105,15 @@ Each milestone has an acceptance gate. Embedded signing remains a required proje
 ### 1. Validate CryptoPro and PDF signing feasibility
 
 - [ ] Record a tested OS/browser/CSP/plug-in matrix and obtain suitable test certificates, including supported GOST variants.
-- [ ] Build a minimal bridge experiment: readiness, certificate selection, signing exact binary data, and verification.
-- [ ] Choose the detached encoding, filename convention, and initial signature profile.
+- [x] Build a minimal bridge experiment: readiness, certificate selection, signing exact binary data, and verification. User confirmed working signing and successful validation on 2026-11-10.
+- [x] Choose the detached encoding, filename convention, and initial signature profile: DER CMS, `<filename>.sig`, CAdES-BES.
 - [ ] Prove browser-only embedded signing on a small fixture: prepare byte ranges, create CMS through CryptoPro, embed it, and verify with an independent GOST-capable PDF verifier.
 - [ ] Evaluate PDF rendering/editing/signing dependencies, licenses, bridge distribution terms, font licenses, and static asset packaging.
-- [ ] Record the supported PDF subset and target verifiers. Resolve technical blockers before committing to a PDF library.
+- [x] Record the current PDF subset and target verifiers in the feasibility report. Production PDF library selection remains open.
 
 **Acceptance:** reproducible detached and embedded proof-of-concept outputs validate independently; remaining compatibility restrictions are documented.
+
+**Current result:** the user reports the current version works and signatures pass validation. The detailed per-mode independent-verifier evidence and GOST/browser matrix have not yet been recorded; unchecked items above track that follow-up and the remaining distribution review.
 
 ### 2. Build the static shell and PDF preview
 
