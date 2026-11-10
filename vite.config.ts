@@ -1,9 +1,14 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
-import { cpSync, mkdirSync } from 'node:fs';
+import { cpSync, mkdirSync, writeFileSync } from 'node:fs';
+import { csp, securityHeaders } from './scripts/security.mjs';
 export default defineConfig({
   base: './', server: { host: '127.0.0.1', port: 5173 },
-  plugins: [{ name: 'local-assets', closeBundle() {
+  preview: { headers: securityHeaders },
+  plugins: [{ name: 'release-security', apply: 'build', transformIndexHtml() {
+    return [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: csp }, injectTo: 'head-prepend' }];
+  } }, { name: 'local-assets', closeBundle() {
+    writeFileSync('dist/_headers', '/*\n' + Object.entries(securityHeaders).map(([key, value]) => `  ${key}: ${value}`).join('\n') + '\n');
     mkdirSync('dist/vendor', { recursive: true });
     cpSync('vendor/cadesplugin_api.js', 'dist/vendor/cadesplugin_api.js');
     for (const folder of ['cmaps', 'standard_fonts', 'wasm']) cpSync(`node_modules/pdfjs-dist/${folder}`, `dist/pdfjs/${folder}`, { recursive: true });

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { PDFDocument, degrees } from 'pdf-lib';
+import { PDFDocument, PDFHexString, degrees } from 'pdf-lib';
 
 function pdf(pages = 1) {
   const objects = [ '<< /Type /Catalog /Pages 2 0 R >>', `<< /Type /Pages /Kids [${Array.from({ length: pages }, (_, i) => `${3 + i * 2} 0 R`).join(' ')}] /Count ${pages} >>` ];
@@ -16,6 +16,44 @@ function pdf(pages = 1) {
   return Buffer.from(output);
 }
 const upload = (pages = 1, buffer = pdf(pages)) => ({ name: 'Preview.pdf', mimeType: 'application/pdf', buffer });
+
+test('encrypted input is rejected and clears previous results', async ({ page }) => {
+  const fixture = await PDFDocument.create();
+  fixture.addPage();
+  fixture.context.trailerInfo.Encrypt = fixture.context.register(fixture.context.obj({
+    Filter: 'Standard', V: 1, R: 2, Length: 40, P: -4,
+    O: PDFHexString.of('00'.repeat(32)), U: PDFHexString.of('00'.repeat(32)),
+  }));
+  await page.goto('/');
+  await page.locator('#file').setInputFiles(upload());
+  await expect(page.locator('#status')).toContainText('Preview ready');
+  await page.locator('#file').setInputFiles(upload(1, Buffer.from(await fixture.save({ useObjectStreams: false }))));
+  await expect(page.locator('#status')).toContainText('Password-protected PDFs are not supported');
+  await expect(page.locator('#workspace')).toBeHidden();
+  await expect(page.locator('#downloads a')).toHaveCount(0);
+});
+
+test('normal text and primary buttons meet 4.5:1 contrast in both themes', async ({ page }) => {
+  await page.goto('/');
+  for (const dark of [false, true]) {
+    await page.locator('#theme').setChecked(dark);
+    const ratios = await page.evaluate(() => {
+      const luminance = (color: string) => {
+        const values = color.match(/[\d.]+/g)!.slice(0, 3).map(Number).map(v => {
+          const s = v / 255; return s <= .04045 ? s / 12.92 : ((s + .055) / 1.055) ** 2.4;
+        });
+        return values[0] * .2126 + values[1] * .7152 + values[2] * .0722;
+      };
+      const ratio = (a: string, b: string) => {
+        const x = luminance(a), y = luminance(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05);
+      };
+      const body = getComputedStyle(document.body), hint = getComputedStyle(document.querySelector('.hint')!);
+      const button = getComputedStyle(document.querySelector('.file-button')!);
+      return [ratio(body.color, body.backgroundColor), ratio(hint.color, body.backgroundColor), ratio(button.color, button.backgroundColor)];
+    });
+    for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
+  }
+});
 
 async function chooseDropdown(page: import('@playwright/test').Page, id: string, name: string) {
   await page.locator(`#${id}-trigger`).click();
@@ -150,6 +188,49 @@ test('detached signing downloads exact PDF and decoded signature, then clears re
   await expect(links.nth(1)).toHaveAttribute('download', 'Preview.pdf.sig');
   await page.locator('#reset').click();
   await expect(links).toHaveCount(0);
+});
+
+test('release policy blocks external connections and permits local PDF downloads', async ({ page }) => {
+  await mockCryptoPro(page);
+  const response = await page.goto('/');
+  expect(response?.headers()['cache-control']).toBe('no-store');
+  expect(response?.headers()['content-security-policy']).toContain("frame-ancestors 'none'");
+  expect(await page.evaluate(async () => {
+    try { await fetch('https://example.com/document-upload', { method: 'POST', body: 'blocked' }); return false; }
+    catch { return true; }
+  })).toBe(true);
+  await page.locator('#connect').click();
+  await page.locator('#file').setInputFiles({ ...upload(), name: 'Документ.pdf' });
+  await expect(page.locator('#sign')).toBeEnabled();
+  await page.locator('#sign').click();
+  const links = page.locator('#downloads a');
+  await expect(links).toHaveCount(2);
+  for (let i = 0; i < 2; i++) {
+    const downloading = page.waitForEvent('download');
+    await links.nth(i).click();
+    const download = await downloading;
+    expect(download.suggestedFilename()).toBe(i ? 'Документ.pdf.sig' : 'Документ.pdf');
+    const stream = await download.createReadStream();
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream!) chunks.push(Buffer.from(chunk));
+    expect(Buffer.concat(chunks)).toEqual(pdf());
+  }
+  await page.locator('#stamp-enabled').check();
+  await expect(page.locator('#stamp-status')).toContainText('Stamp on page');
+  await page.locator('#reset').click();
+  expect(await page.locator('#stamp-preview').evaluate((c: HTMLCanvasElement) => c.width * c.height)).toBe(0);
+  await expect(links).toHaveCount(0);
+  expect(await page.evaluate(() => Object.keys(localStorage).every(key => ['pdf-signer-theme', 'pdf-signer-output-format', 'pdf-signer-stamp-caption'].includes(key)))).toBe(true);
+});
+
+test('missing native API keeps preview available and signing disabled', async ({ page }) => {
+  await page.route('**/vendor/cadesplugin_api.js', route => route.fulfill({ contentType: 'application/javascript', body: '' }));
+  await page.goto('/');
+  await page.locator('#connect').click();
+  await expect(page.locator('#readiness-status')).toContainText('CryptoPro unavailable');
+  await page.locator('#file').setInputFiles(upload());
+  await expect(page.locator('#status')).toContainText('Preview ready');
+  await expect(page.locator('#sign')).toBeDisabled();
 });
 
 for (const mode of ['failure', 'pending']) {

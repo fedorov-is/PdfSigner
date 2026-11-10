@@ -23,6 +23,7 @@ let page = 1;
 let source: { bytes: Uint8Array; name: string } | undefined;
 let adapter: CryptoPro | undefined;
 let signing = false;
+let connecting = false;
 let signingRun = 0;
 const downloads: string[] = [];
 function discardResult() {
@@ -33,7 +34,7 @@ function discardResult() {
 function signingControls() {
   el<HTMLButtonElement>('sign').disabled = signing || !source || !adapter || certificates.disabled;
   el<HTMLButtonElement>('cancel-sign').hidden = !signing;
-  el<HTMLButtonElement>('connect').disabled = signing;
+  el<HTMLButtonElement>('connect').disabled = signing || connecting;
   el<HTMLButtonElement>('export-stamp').disabled = signing || !source || !stampEnabled.checked;
 }
 function invalidateSigning() {
@@ -74,6 +75,9 @@ async function clear() {
   el('stamp-settings').hidden = true;
   el<HTMLFieldSetElement>('stamp-fields').disabled = true;
   overlay.hidden = true;
+  gesture = undefined;
+  const stampCanvas = el<HTMLCanvasElement>('stamp-preview');
+  stampCanvas.width = stampCanvas.height = 0;
   stampRevision++;
   for (const [key, value] of Object.entries({ page: '1', x: '24', y: '24', width: '280', height: '140' })) input(key).value = value;
   el('stamp-status').textContent = '';
@@ -155,9 +159,17 @@ async function open(file: File) {
     if (signed || /\/ByteRange\s*\[|\/FT\s*\/Sig\b/.test(new TextDecoder('latin1').decode(bytes))) {
       el('signing-status').textContent = 'Existing signature detected. Signing this PDF is not supported yet.';
     } else {
-      try { await assertUnsigned(bytes); source = { bytes, name: file.name }; }
-      catch (error) { el('signing-status').textContent = error instanceof Error ? error.message : String(error); }
+      try {
+        await assertUnsigned(bytes);
+        if (id !== generation) return;
+        source = { bytes, name: file.name };
+      }
+      catch (error) {
+        if (id !== generation) return;
+        el('signing-status').textContent = error instanceof Error ? error.message : String(error);
+      }
     }
+    if (id !== generation) return;
     document = pdf;
     signingControls();
     el('filename').textContent = file.name;
@@ -208,6 +220,8 @@ certificates.addEventListener('change', () => {
   void previewStamp();
 });
 el('connect').addEventListener('click', async () => {
+  if (connecting || signing) return;
+  connecting = true;
   const button = el<HTMLButtonElement>('connect');
   button.disabled = true;
   invalidateSigning();
@@ -238,7 +252,7 @@ el('connect').addEventListener('click', async () => {
   } catch (error) {
     el('readiness-status').textContent = `CryptoPro unavailable: ${error instanceof Error ? error.message : String(error)}. Check CSP, Browser plug-in and extension installation. Preview remains available.`;
     certificates.add(new Option('CryptoPro unavailable'));
-  } finally { button.disabled = false; signingControls(); }
+  } finally { connecting = false; button.disabled = false; signingControls(); }
 });
 el('sign').addEventListener('click', async () => {
   if (!source || !adapter || signing) return;
@@ -334,7 +348,8 @@ async function previewStamp() {
     task = getDocument({ data: bytes });
     const pdf = await task.promise;
     const stampPage = await pdf.getPage(1);
-    const viewport = stampPage.getViewport({ scale: displayScale * 2 });
+    const scale = Math.min(displayScale * 2, Math.sqrt(MAX_PIXELS / (stamp.width * stamp.height)));
+    const viewport = stampPage.getViewport({ scale });
     const temporary = window.document.createElement('canvas');
     temporary.width = Math.ceil(viewport.width); temporary.height = Math.ceil(viewport.height);
     await stampPage.render({ canvas: temporary, viewport, background: 'rgba(0,0,0,0)' }).promise;

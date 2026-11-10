@@ -160,14 +160,19 @@ Implementation and automated checks are documented in [stamp editor notes](docs/
 
 ### 6. Harden and release
 
-- [ ] Test binary conversions, coordinate transforms, byte-range coverage, placeholder overflow, and downloaded-file integrity with meaningful fixtures.
-- [ ] Run browser integration tests with a mocked adapter for UI failures and manual tests with real CryptoPro and a test key/token.
-- [ ] Cover Cyrillic names, large files, rotated/cropped pages, malformed PDFs, encrypted PDFs, and already signed documents.
-- [ ] Test keyboard operation, theme contrast, memory use, and clearing document state on reset.
-- [ ] Pin dependencies, package approved assets locally, configure a compatible content security policy, and exclude document data from telemetry and caches.
-- [ ] Document installation, supported environments, troubleshooting, build commands, static deployment, limitations, and verification instructions.
+- [x] Test binary conversions, coordinate transforms, byte-range coverage, placeholder overflow, and downloaded-file integrity with meaningful fixtures.
+- [x] Run browser integration tests with a mocked adapter for UI failures.
+- [ ] Complete manual tests with real CryptoPro and a test key/token; record independent verification for both modes with and without stamps.
+- [x] Cover Cyrillic names, large files, rotated/cropped pages, malformed PDFs, encrypted PDFs, and already signed documents with automated fixtures.
+- [x] Test keyboard controls, light/dark text contrast, canvas memory limits, and clearing document state on reset.
+- [ ] Complete manual accessibility and repeated-document memory profiling.
+- [x] Pin dependencies, package assets locally, configure a production content security policy, and exclude document data from telemetry and caches.
+- [ ] Confirm bridge redistribution terms, asset approval, and CSP compatibility with real native environments.
+- [x] Document installation, supported environments, troubleshooting, build commands, static deployment, limitations, and verification instructions.
 
 **Acceptance:** the published static build passes the recorded compatibility matrix and end-to-end signing checks for both output modes, with and without a stamp.
+
+**Release candidate:** hardening is implemented; publication and manual acceptance remain pending. On 2026-11-11, 14 Node tests and 18 Chrome integration tests passed, alongside lint and the production build. See [release and deployment notes](docs/release.md) for security headers, installation, the compatibility record, and remaining manual gates. Build output is in `dist/`; no deployment has been performed.
 
 ### Later enhancements
 

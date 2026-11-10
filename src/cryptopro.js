@@ -10,7 +10,7 @@ export class CryptoPro {
     }
   }
   static async connect() {
-    if (!globalThis.cadesplugin) throw new Error('Official bridge missing. See vendor/README.md.');
+    if (!globalThis.cadesplugin) throw new Error('Official bridge missing. Check vendor/cadesplugin_api.js and the installation instructions in README.md.');
     let timer;
     try {
       await Promise.race([globalThis.cadesplugin, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Bridge timed out. Check native plug-in, browser extension and site access.')), 20000); })]);
