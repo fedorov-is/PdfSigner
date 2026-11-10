@@ -2,6 +2,7 @@ import { getDocument, GlobalWorkerOptions, type PDFDocumentLoadingTask, type PDF
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { CryptoPro } from './cryptopro.js';
 import { createDetached, deadline } from './detached.js';
+import { assertUnsigned, createEmbedded } from './embedded.js';
 import { applyStamp, stampPdf, type Stamp } from './stamp';
 
 GlobalWorkerOptions.workerSrc = workerUrl;
@@ -150,7 +151,10 @@ async function open(file: File) {
     const signed = Object.values(fields ?? {}).flat().some(field => field.type === 'Sig');
     if (signed || /\/ByteRange\s*\[|\/FT\s*\/Sig\b/.test(new TextDecoder('latin1').decode(bytes))) {
       el('signing-status').textContent = 'Existing signature detected. Signing this PDF is not supported yet.';
-    } else source = { bytes, name: file.name };
+    } else {
+      try { await assertUnsigned(bytes); source = { bytes, name: file.name }; }
+      catch (error) { el('signing-status').textContent = error instanceof Error ? error.message : String(error); }
+    }
     document = pdf;
     signingControls();
     el('filename').textContent = file.name;
@@ -244,21 +248,33 @@ el('sign').addEventListener('click', async () => {
   try {
     const prepared = await finalPdf(current);
     if (run !== signingRun) return;
-    const result = await deadline(() => createDetached(active, prepared.bytes, selected));
+    const embedded = el<HTMLSelectElement>('signing-mode').value === 'embedded';
+    const result = await deadline(() => embedded ? createEmbedded(active, prepared.bytes, selected, () => run === signingRun) : createDetached(active, prepared.bytes, selected));
     if (run !== signingRun) return;
-    for (const [bytes, name, type] of [[result.pdf, prepared.name, 'application/pdf'], [result.signature, prepared.name + '.sig', 'application/pkcs7-signature']] as const) {
+    const artifacts: [Uint8Array, string, string][] = [[result.pdf, embedded ? prepared.name.replace(/\.pdf$/i, '') + '-signed.pdf' : prepared.name, 'application/pdf']];
+    if ('signature' in result) artifacts.push([result.signature as Uint8Array, prepared.name + '.sig', 'application/pkcs7-signature']);
+    for (const [bytes, name, type] of artifacts) {
       const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type }));
       downloads.push(url);
       const link = window.document.createElement('a');
       link.href = url; link.download = name; link.textContent = 'Download ' + name;
       el('downloads').append(link, window.document.createElement('br'));
     }
-    el('signing-status').textContent = 'Detached CAdES-BES verified by CryptoPro; changed-byte check rejected. Keep both files together. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.';
+    el('signing-status').textContent = embedded ? 'Embedded CAdES-BES verified by CryptoPro from the final PDF; changed-byte check rejected. Reader compatibility requires independent verification. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.' : 'Detached CAdES-BES verified by CryptoPro; changed-byte check rejected. Keep both files together. Certificate trust and revocation are not independently assessed. No trusted timestamp is included.';
   } catch (error) {
     if (run !== signingRun) return;
     discardResult();
     el('signing-status').textContent = 'Signing failed: ' + (error instanceof Error ? error.message : String(error)) + '. Check certificate validity, private-key access and token connection. If access was denied or cancelled, retry explicitly. No result is available.';
-  } finally { if (run === signingRun) { signing = false; signingControls(); } }
+  } finally { if (run === signingRun) { signingRun++; signing = false; signingControls(); } }
+});
+const signingMode = el<HTMLSelectElement>('signing-mode');
+try {
+  const savedMode = localStorage.getItem('pdf-signer-output-format');
+  if (savedMode === 'detached' || savedMode === 'embedded') signingMode.value = savedMode;
+} catch { /* Storage is optional. */ }
+signingMode.addEventListener('change', () => {
+  try { localStorage.setItem('pdf-signer-output-format', signingMode.value); } catch { /* Storage is optional. */ }
+  invalidateSigning();
 });
 el('cancel-sign').addEventListener('click', () => {
   invalidateSigning();

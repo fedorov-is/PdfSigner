@@ -2,13 +2,13 @@
 
 A planned static web application for signing PDF files in the browser using **CryptoPro CSP and CryptoPro ЭЦП Browser plug-in**. Users will be able to create a separate signature file, embed a digital signature into a PDF, and place a visible stamp on a document before signing.
 
-**Status:** the current feasibility version is working. On 2026-11-10, the user confirmed that the official bridge was added, signing works correctly, and generated signatures pass validation. The static shell and local PDF preview are implemented; the visible stamp editor and stamped detached output are implemented; arbitrary-PDF embedded signing remains a later milestone. See [stamp editor notes](docs/stamp.md). See [the preview implementation notes](docs/preview.md).
+**Status:** the current feasibility version is working. On 2026-11-10, the user confirmed that the official bridge was added, signing works correctly, and generated signatures pass validation. The static shell and local PDF preview are implemented; the visible stamp editor and stamped detached output are implemented; embedded signing for supported unsigned PDFs is implemented, with independent reader acceptance still pending. See [embedded signing notes](docs/embedded.md). See [stamp editor notes](docs/stamp.md). See [the preview implementation notes](docs/preview.md).
 
 ## Run the application
 
 Use Node.js 22.13+ (24 recommended). Run `npm.cmd ci` first. The official CryptoPro JavaScript bridge is included at `vendor/cadesplugin_api.js` (JS module version 2.4.5); native CryptoPro components and the browser extension must also be installed. Run `npm.cmd test` and `npm.cmd run dev` on Windows, then open `http://127.0.0.1:5173`. Run `npm.cmd run build` for static output in `dist/`, `npm.cmd run lint` for linting, and `npm.cmd run test:e2e` for Chrome preview checks after building. On other systems use `npm test` and `npm run dev`.
 
-The main page previews PDFs and creates verified detached CAdES-BES signatures; open **Signing lab** (`lab.html`) for the preserved feasibility harness. The local harness checks native API readiness, lists certificates, signs/verifies exact PDF bytes, and assembles an embedded signature in a generated fixture. See [the feasibility report](docs/feasibility.md) for the successful user test, observed versions, format decisions, dependency evaluation and reproducible verification steps. Exact browser/certificate/verifier details still need to be recorded before publishing a broader compatibility matrix or claiming a specific PAdES profile.
+The main page previews PDFs and creates verified detached or embedded CAdES-BES signatures; open **Signing lab** (`lab.html`) for the preserved feasibility harness. The local harness checks native API readiness, lists certificates, signs/verifies exact PDF bytes, and assembles an embedded signature in a generated fixture. See [the feasibility report](docs/feasibility.md) for the successful user test, observed versions, format decisions, dependency evaluation and reproducible verification steps. Exact browser/certificate/verifier details still need to be recorded before publishing a broader compatibility matrix or claiming a specific PAdES profile.
 
 The bridge can log `GET chrome-extension://invalid/ net::ERR_FAILED` while probing the older extension before loading the newer one. This fallback is harmless when readiness, signing and validation succeed; keep the official bridge unchanged. See [troubleshooting](docs/feasibility.md#extension-fallback-console-error).
 
@@ -58,7 +58,7 @@ The planned signing environment requires a supported browser/OS combination, Cry
 
 The application will be served as static assets over HTTPS, with a local development server for development. Static hosting does not remove the need for the locally installed CryptoPro components.
 
-PDF bytes and generated artifacts should stay in browser memory. The application must not export private keys, collect PINs, log document contents, or persist PDFs or certificate details in browser storage. The theme preference and user-entered stamp caption are stored in localStorage; caption edits are restored across reloads and document changes. Certificate validation or optional timestamping may require network requests from CryptoPro or the client; these dependencies must be described before such features are enabled. Fully offline operation is not an initial guarantee.
+PDF bytes and generated artifacts should stay in browser memory. The application must not export private keys, collect PINs, log document contents, or persist PDFs or certificate details in browser storage. The theme preference, selected output format, and user-entered stamp caption are stored in localStorage; caption edits are restored across reloads and document changes. Certificate validation or optional timestamping may require network requests from CryptoPro or the client; these dependencies must be described before such features are enabled. Fully offline operation is not an initial guarantee.
 
 ## Visual design
 
@@ -149,11 +149,12 @@ Implementation and automated checks are documented in [stamp editor notes](docs/
 
 ### 5. Deliver embedded PDF signatures
 
-- [ ] Productionize the proven byte-range and placeholder implementation with a visible or invisible signature field.
-- [ ] Include the optional stamp in the prepared revision before signing.
-- [ ] Handle placeholder sizing, CMS decoding, algorithm selection, and final output verification.
-- [ ] Detect existing signatures and certification restrictions; reject unsupported cases with an explanation.
-- [ ] Document the exact embedded signature profile and verified reader compatibility.
+- [x] Productionize the proven byte-range and placeholder implementation with a visible or invisible signature field.
+- [x] Include the optional stamp in the prepared revision before signing.
+- [x] Handle placeholder sizing, CMS decoding, algorithm selection, and final output verification.
+- [x] Detect existing signatures and certification restrictions; reject unsupported cases with an explanation.
+- [x] Document the exact embedded signature format and current compatibility status in [embedded signing notes](docs/embedded.md).
+- [ ] Record independent GOST-capable reader verification for stamped and unstamped outputs.
 
 **Acceptance:** supported PDFs open and verify in the agreed independent GOST-capable tools; tampering is detected; oversized signatures and unsupported inputs fail safely.
 

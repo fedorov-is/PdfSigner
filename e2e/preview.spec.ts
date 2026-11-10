@@ -84,8 +84,8 @@ async function mockCryptoPro(page: import('@playwright/test').Page, mode = 'succ
       if (name === 'CAdESCOM.CPSigner') return { propset_Certificate: async () => {}, propset_Options: async () => {} };
       let content;
       return { propset_ContentEncoding: async () => {}, propset_Content: async value => { content = value; },
-        SignCades: async () => { if ('${mode}' === 'failure') throw new Error('Access denied'); if ('${mode}' === 'pending') await new Promise(() => {}); return content; },
-        VerifyCades: async signature => { if (content !== signature) throw new Error('Changed content'); } };
+        SignCades: async () => { if ('${mode}' === 'failure') throw new Error('Access denied'); if ('${mode}' === 'pending') await new Promise(() => {}); if ('${mode}' === 'embedded') { const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', Uint8Array.from(atob(content), c => c.charCodeAt(0)))); return btoa(String.fromCharCode(48, 32, ...hash)); } return content; },
+        VerifyCades: async signature => { if ('${mode}' === 'embedded') { const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', Uint8Array.from(atob(content), c => c.charCodeAt(0)))); if (signature !== btoa(String.fromCharCode(48, 32, ...hash))) throw new Error('Changed content'); return; } if (content !== signature) throw new Error('Changed content'); } };
     } };
   ` }));
 }
@@ -257,3 +257,30 @@ test('stamped detached output signs exported bytes and edits invalidate results'
   await page.locator('#stamp-caption').fill('Changed');
   await expect(links).toHaveCount(0);
 });
+
+for (const stamp of [false, true]) {
+  test('embedded PDF download with stamp ' + stamp, async ({ page }) => {
+    await mockCryptoPro(page, 'embedded');
+    await page.goto('/'); await page.locator('#connect').click();
+    await expect(page.locator('#readiness-status')).toContainText('Plug-in test');
+    await page.locator('#file').setInputFiles(upload());
+    await expect(page.locator('#sign')).toBeEnabled();
+    if (stamp) {
+      await page.locator('#stamp-enabled').check();
+      await expect(page.locator('#stamp-status')).toContainText('Stamp on page');
+    }
+    await page.locator('#signing-mode').selectOption('embedded');
+    await page.locator('#sign').click();
+    await expect(page.locator('#signing-status')).toContainText('Embedded CAdES-BES verified');
+    const links = page.locator('#downloads a');
+    await expect(links).toHaveCount(1);
+    await expect(links).toHaveAttribute('download', stamp ? 'Preview-stamped-signed.pdf' : 'Preview-signed.pdf');
+    const output = await links.evaluate(async (a: HTMLAnchorElement) => Array.from(new Uint8Array(await (await fetch(a.href)).arrayBuffer())));
+    const pdf = await PDFDocument.load(new Uint8Array(output));
+    expect(pdf.getForm().getFields()).toHaveLength(1);
+    await page.locator('#file').setInputFiles(upload(1, Buffer.from(output)));
+    await expect(page.locator('#signing-status')).toContainText('Existing signature');
+    await expect(page.locator('#sign')).toBeDisabled();
+    await expect(links).toHaveCount(0);
+  });
+}
