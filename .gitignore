@@ -1,8 +1,8 @@
-artifacts/
+test/artifacts/
 node_modules/
 
-dist/
-.npm-cache/
+src/build/dist/
+node_modules/.cache/npm/
 
-playwright-report/
-test-results/
+test/playwright-report/
+test/results/

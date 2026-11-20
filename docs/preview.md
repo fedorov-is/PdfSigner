@@ -6,13 +6,13 @@ Implemented on 2026-11-10. The main page is a TypeScript/Vite static app; No hos
 
 Use Node.js 22.13+ (24 recommended), then `npm.cmd ci`, `npm.cmd run dev`.
 
-- `npm.cmd run build`: TypeScript check and production output in `dist/`.
+- `npm.cmd run build`: TypeScript check and production output in `src/build/dist/`.
 - `npm.cmd run preview`: serve the production output locally.
 - `npm.cmd run lint`: ESLint for the TypeScript implementation and build configuration.
 - `npm.cmd test`: existing binary/signing adapter/fixture unit tests.
 - `npm.cmd run test:e2e`: production-build browser tests using installed Google Chrome. Run the build first. No CryptoPro installation or test key is needed for preview tests.
 
-Upload the **contents** of `dist/` to static hosting over HTTPS. Relative asset paths support subdirectory hosting. Serve `.js` and `.mjs` as JavaScript and `.wasm` as `application/wasm`. Do not use `file://`. The CryptoPro bridge is intentionally a classic script; the build copies it unchanged into `dist/vendor/`.
+Upload the **contents** of `src/build/dist/` to static hosting over HTTPS. Relative asset paths support subdirectory hosting. Serve `.js` and `.mjs` as JavaScript and `.wasm` as `application/wasm`. Do not use `file://`. The CryptoPro bridge is intentionally a classic script; the build copies it unchanged into `src/build/dist/vendor/`.
 
 PDF.js 6.5.438 is pinned in the lockfile. Its renderer, matching worker, CMaps, standard fonts, WASM resources and Apache-2.0 license are packaged locally. No PDF data is sent to a server. PDF.js reference: https://mozilla.github.io/pdf.js/getting_started/. The CryptoPro bridge loads only on an explicit readiness check on the main page. Certificate enumeration can request native access. Only the theme preference is stored; documents and certificate details are not persisted.
 

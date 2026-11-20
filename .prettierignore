@@ -1,8 +1,8 @@
 node_modules/
-dist/
+src/build/dist/
 coverage/
-.npm-cache/
-artifacts/
-playwright-report/
-test-results/
-vendor/
+node_modules/.cache/npm/
+test/artifacts/
+test/playwright-report/
+test/results/
+public/vendor/

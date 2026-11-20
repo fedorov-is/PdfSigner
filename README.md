@@ -1,187 +1,145 @@
 # PDF Signer
 
-A static web application for signing PDF files locally in the browser using CryptoPro CSP and the CryptoPro Browser plug-in.
+[Русский](#русский) · [English](#english)
 
-**Status:** PDF preview, visible stamps, detached signing and embedded signing are implemented. Independent reader acceptance remains pending; see [release notes](docs/release.md).
+## Русский
 
-## Run the application
+Подписывайте PDF-файлы локально в браузере с помощью КриптоПро. Просматривайте документы, добавляйте видимый штамп и скачивайте PDF с отдельным файлом подписи или со встроенной подписью. Интерфейс поддерживает русский и английский языки, светлую и тёмную темы, а также мобильные устройства.
 
-Use Node.js 22.13+ (24 recommended). Run `npm.cmd ci` first. The official CryptoPro JavaScript bridge is included at `vendor/cadesplugin_api.js` (JS module version 2.4.5); native CryptoPro components and the browser extension must also be installed. Run `npm.cmd test` and `npm.cmd run dev` on Windows, then open `http://127.0.0.1:5173`. Run `npm.cmd run build` for static output in `dist/`, `npm.cmd run lint` for linting, and `npm.cmd run test:e2e` for Chrome preview checks after building. On other systems use `npm test` and `npm run dev`.
+PDF обрабатываются в памяти браузера без загрузки документов на сервер. Просмотр документов и экспорт PDF со штампом доступны без КриптоПро.
 
-The main page previews PDFs and creates verified detached or embedded CAdES-BES signatures. See [release notes](docs/release.md) for installation, compatibility and verification requirements.
+### Запуск приложения
 
-## Formatting
+Для локального запуска установите Node.js версии 22.13 или новее (рекомендуется 24), затем выполните в каталоге проекта:
 
-Run `npm run format` to format project files with Prettier, or `npm run format:check` to check formatting without changing files. On Windows, use `npm.cmd` if PowerShell blocks `npm.ps1`. Generated output and third-party files are excluded via `.prettierignore`.
+```sh
+npm ci
+npm run dev
+```
 
-## Goals
+Откройте в браузере `http://127.0.0.1:5173`. Не закрывайте терминал во время работы с приложением. Если PowerShell в Windows блокирует команду `npm`, используйте `npm.cmd`. Открытие HTML-файла напрямую через `file://` не поддерживается.
 
-- Process PDF files locally in the browser without an application backend or document uploads.
-- Let users inspect a PDF, select a signing certificate, choose an output format, and download the result.
-- Provide clear installation diagnostics and actionable CryptoPro errors.
-- Reuse the visual style of the sibling project [ShareFolderAsSite](../ShareFolderAsSite).
+### Подготовка к подписанию
 
-## Signing modes
+Для подписания необходимы:
 
-| Mode               | Output                                                    | Behavior                                                                                                                                                                 |
-| ------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Separate signature | PDF plus a detached CMS/CAdES signature, initially `.sig` | Sign the exact bytes of the final PDF. The PDF and signature must be kept together for verification.                                                                     |
-| Embedded signature | A signed `.pdf`                                           | Store a cryptographic signature in the PDF signature structure, covering its declared byte ranges. Target a documented PDF/CAdES profile after interoperability testing. |
-| Visible stamp      | A PDF containing a stamp                                  | Add a visible representation of signing information. A stamp alone is not a cryptographic signature. It can be used with either signing mode or exported on its own.     |
+- КриптоПро CSP.
+- Установленный КриптоПро ЭЦП Browser plug-in и его браузерное расширение с разрешённым доступом к сайту приложения.
+- Действующий сертификат подписи с доступным закрытым ключом на компьютере или подключённом токене.
 
-An attached CAdES container holding a PDF is a different output format from a signature embedded in the PDF structure. The embedded-signature feature must produce an actual signed PDF.
+Установите компоненты КриптоПро из одобренного вашей организацией источника или от КриптоПро, затем перезапустите браузер. Откройте приложение и нажмите **Проверить КриптоПро**. При запросе разрешите доступ к сайту. Подробности приведены в [заметках об установке и совместимости](docs/release.md).
 
-### Visible stamp
+### Подписание PDF
 
-The stamp editor supports:
+1. Выберите локальный PDF или перетащите его в приложение. Просмотрите документ с помощью переключения страниц и масштаба.
+2. Проверьте готовность КриптоПро и выберите сертификат в списке доступных сертификатов. Проверьте сведения о нём.
+3. При необходимости включите видимый штамп, введите подпись к нему, выберите страницу и настройте положение и размер. Можно перетаскивать штамп или использовать числовые поля.
+4. Выберите формат результата:
+   - **Отдельная подпись (.sig)** — PDF и отдельный файл подписи. Скачайте и храните оба файла вместе: для проверки нужен именно скачанный PDF.
+   - **Встроенная подпись (.pdf)** — один PDF-файл со встроенной подписью.
+5. Нажмите кнопку подписания PDF и выполните запросы КриптоПро. Вводите PIN-код токена только в системном диалоге КриптоПро.
+6. Дождитесь успешной проверки и скачайте готовые файлы. Изменение документа, штампа или сертификата удаляет предыдущие ссылки для скачивания.
 
-- Selecting a page, dragging the stamp, and resizing it within page boundaries.
-- Displaying the certificate holder, issuer, serial number, and a signing-time label, with an optional organization or custom caption.
-- Previewing and exporting text and a border as PDF content with embedded fonts, including Cyrillic support.
-- Correct placement across zoom levels, rotated pages, and different page sizes and crop boxes.
-- A text-based position and size alternative to dragging for keyboard users.
+Если штамп включён, он добавляется в итоговый PDF до подписания. Для проверки отдельной подписи используйте скачанный PDF и соответствующий файл подписи, а не исходный документ без штампа.
 
-The stamp must be finalized **before** the signature is calculated. For detached signing, the exported stamped PDF is the document paired with the signature. For embedded signing, the stamp and signature field are prepared before calculating the PDF byte-range digest. The displayed time is informational unless backed by a verified timestamp service.
+### Экспорт штампа без подписи
 
-## Intended user flow
+Откройте PDF, включите видимый штамп, настройте текст и положение, затем нажмите кнопку экспорта PDF со штампом. КриптоПро для этого не требуется. Сам по себе видимый штамп не является криптографической подписью.
 
-1. Open the application and view CryptoPro readiness: bridge, native plug-in, provider, and available certificates.
-2. Select or drop a local PDF, then inspect its pages and any detected existing signatures.
-3. Optionally add and position a stamp. Stamp-only export should work without CryptoPro.
-4. Choose separate or embedded signing and select a certificate. Show subject, issuer, validity dates, and available key information.
-5. Review the final document and output mode, then explicitly start signing. CryptoPro may request access or a token PIN through its native UI.
-6. Verify the generated result where supported, then download it. Detached mode offers both the exact PDF that was signed and its signature.
+### Поддерживаемые документы и проверка
 
-Cancellation, unavailable keys, unsupported PDFs, and failed verification must leave the original file intact and must not produce a success message.
+Размер PDF не должен превышать 20 МиБ, а количество страниц — 500. Документы, защищённые паролем, не поддерживаются. Редактирование и подписание документов с обнаруженными подписями или ограничениями сертификации заблокировано. Встроенная подпись также недоступна для документов XFA.
 
-## Runtime requirements and privacy
+Перед предоставлением файлов для скачивания приложение проверяет созданные подписи через КриптоПро. Независимая проверка совместимости с программами просмотра PDF и испытания с реальными токенами ещё не завершены. Проверка в приложении не подтверждает доверие к сертификату, статус его отзыва или достоверное время подписания. Перед использованием результата в рабочем процессе проверьте его средством проверки получателя. Текущий статус совместимости описан в [заметках о выпуске](docs/release.md).
 
-The planned signing environment requires a supported browser/OS combination, CryptoPro CSP, the native CryptoPro Browser plug-in and its browser extension where required, and access to a signing certificate with its private key. Installation, licensing, supported algorithms, and browser compatibility must be documented against the versions tested during implementation.
+### Конфиденциальность
 
-The application will be served as static assets over HTTPS, with a local development server for development. Static hosting does not remove the need for the locally installed CryptoPro components.
+Приложение не сохраняет документы, подписи и сведения о сертификатах в постоянное хранилище. Язык, тема, формат результата и текст штампа сохраняются в хранилище браузера. Закрытые ключи остаются под управлением КриптоПро, приложение не собирает PIN-коды. Компоненты КриптоПро могут обращаться к сетевым службам для проверки сертификатов, поэтому полностью автономное подписание не гарантируется.
 
-PDF bytes and generated artifacts should stay in browser memory. The application must not export private keys, collect PINs, log document contents, or persist PDFs or certificate details in browser storage. The theme preference, selected output format, and user-entered stamp caption are stored in localStorage; caption edits are restored across reloads and document changes. Certificate validation or optional timestamping may require network requests from CryptoPro or the client; these dependencies must be described before such features are enabled. Fully offline operation is not an initial guarantee.
+### Решение проблем
 
-## Visual design
+- **КриптоПро недоступен:** проверьте установку компонентов, браузерное расширение и разрешения сайта, затем повторите проверку КриптоПро.
+- **Сертификатов нет в списке:** убедитесь, что сертификат действителен, имеет закрытый ключ, а токен подключён.
+- **Ошибка или отмена подписания:** проверьте доступ к ключу и системные диалоги, закройте незавершённые запросы и повторите попытку. При ошибке подписанные файлы не предоставляются.
+- **PDF отклонён:** проверьте размер, количество страниц, защиту паролем и наличие существующих подписей с учётом указанных выше ограничений.
 
-Use `C:\Development\Personal\js\ShareFolderAsSite\styles.css` and `index.html` as the styling reference. Adapt its design tokens and reusable patterns into this repository so deployment does not depend on a sibling directory.
+### Дополнительная документация
 
-- System font stack, 15px body text, compact headings, and a centered 960px content area.
-- Light theme: background `#f7f7f8`, text `#1d1d1f`, white cards, border `#e2e2e6`.
-- Dark theme: background `#18181b`, text `#ececf0`, cards `#222226`, border `#34343a`.
-- Orange accent `#fc3f1d`, 8px button/card corners, and 12px viewer corners.
-- Compact top bar, bordered panels, tab navigation, muted hints, status messages, and a footer theme switch.
-- Responsive PDF preview with a settings panel that stacks on narrow screens; visible keyboard focus and accessible form labels.
+- [Архитектура, план разработки, команды и структура проекта](docs/project.md)
+- [Выпуск, установка, развёртывание и совместимость](docs/release.md)
+- [Просмотр PDF](docs/preview.md)
+- [Видимые штампы](docs/stamp.md)
+- [Отдельные подписи](docs/detached.md)
+- [Встроенные подписи](docs/embedded.md)
 
-Keep the first screen focused on opening a PDF and checking CryptoPro readiness. Show certificate and stamp controls when a document is loaded.
+---
 
-## Proposed architecture
+﻿# PDF Signer
 
-Use TypeScript with a lightweight static build, provisionally Vite and native DOM components. No server-side signing endpoint is planned. Dependencies are pinned and packaged locally; distribution and browser compatibility review remain release requirements.
+Sign PDF files locally in your browser using CryptoPro. Preview documents, add an optional visible stamp, and download either a PDF with a separate signature or a PDF with an embedded signature. The interface supports English and Russian, light and dark themes, and mobile layouts.
 
-| Component                | Responsibility                                                                                                               |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Application state and UI | Document workflow, status, theme, progress, and downloads                                                                    |
-| CryptoPro adapter        | Load the official bridge, detect readiness, enumerate certificates, sign and verify binary content through asynchronous APIs |
-| PDF preview              | Render pages with PDF.js and map preview coordinates to PDF coordinates                                                      |
-| Stamp editor             | Configure stamp content, position, dimensions, and font embedding                                                            |
-| PDF preparation          | Apply stamps and prepare signature fields, placeholders, byte ranges, and serialization                                      |
-| Signing orchestration    | Freeze prepared bytes, request a CMS signature, assemble output, verify, and expose downloads                                |
+PDFs are processed in browser memory without document uploads or an application backend. Previewing documents and exporting visible stamps work without CryptoPro.
 
-PDF.js is a rendering candidate; a PDF editing library such as pdf-lib is a candidate for stamp-only document preparation. PDF signature serialization and incremental updates require a separate capability evaluation: a general-purpose editor is not assumed to preserve existing signatures or implement PDF signing correctly.
+### Start the application
 
-### Binary and PDF signing rules
+To run a local copy, install Node.js 22.13 or newer (24 recommended), then run these commands from the project directory:
 
-- Keep document bytes as `ArrayBuffer`/`Uint8Array`; use the official plug-in's binary/base64 conventions explicitly. Do not sign a filename, a text-decoded PDF, or base64 text accidentally.
-- Detached signing uses the exact final PDF bytes and an explicitly selected CAdES profile, initially targeting CAdES-BES.
-- Embedded signing prepares a signature dictionary, fixed-size `/Contents` reservation, and finalized `/ByteRange`. Sign precisely the covered bytes and fill the reservation without changing offsets or covered content afterward.
-- If the CMS signature exceeds the reservation, regenerate the prepared PDF and sign it again; never truncate it.
-- Validate the selected `/SubFilter`, CMS attributes, digest algorithm, and certificate compatibility with independent target verifiers before claiming a specific PAdES profile.
-- Initially block editing or signing PDFs with existing signatures unless preservation is demonstrated. Later support requires incremental updates and respect for certification permissions; preserving earlier bytes alone is insufficient.
-- Define explicit handling for encrypted, malformed, and unsupported PDFs. Do not silently flatten documents or remove signatures.
+```sh
+npm ci
+npm run dev
+```
 
-## Implementation roadmap
+Open `http://127.0.0.1:5173` in your browser. Keep the terminal running while using the app. On Windows, use `npm.cmd` instead of `npm` if PowerShell blocks the command. Opening the HTML file directly with `file://` is not supported.
 
-Each milestone has an acceptance gate. Embedded signing remains a required project feature even if the first usable release ships detached signing earlier.
+### Prepare for signing
 
-### 2. Build the static shell and PDF preview
+Signing requires:
 
-- [x] Set up TypeScript, the build, linting, and local development commands.
-- [x] Adapt ShareFolderAsSite tokens, panels, buttons, status styling, and persisted light/dark theme.
-- [x] Add local file selection, drag and drop, file validation, page navigation, zoom, and document reset.
-- [x] Package the PDF renderer and worker locally; establish file-size/page-count limits from measurements.
-- [x] Add accessible controls and clear loading, empty, and error states.
+- CryptoPro CSP.
+- The native CryptoPro Browser plug-in and its browser extension, enabled for the application site.
+- A currently valid signing certificate with its private key available on your computer or connected token.
 
-**Acceptance:** the production build runs from static hosting, previews supported PDFs, and works in both themes and narrow layouts. Implemented and checked in Chrome; see [measurements, packaging and remaining manual coverage](docs/preview.md).
+Install CryptoPro components from your organization's approved source or CryptoPro, then restart the browser. Open the app and select **Check CryptoPro** to check readiness. Allow site access if prompted. See [installation and compatibility notes](docs/release.md) for details.
 
-### 3. Deliver detached signing
+### Sign a PDF
 
-- [x] Implement the CryptoPro adapter, timeout handling, readiness diagnostics, and certificate details.
-- [x] Handle missing plug-in, denied access, expired certificates, inaccessible private keys, token removal, cancellation, and signing failures. Native failures are surfaced with recovery guidance; real-token coverage remains manual.
-- [x] Generate and download a detached signature together with the exact PDF it covers.
-- [x] Verify generated signatures and distinguish cryptographic integrity from certificate trust/revocation status.
+1. Select a local PDF or drag it into the application. Review its pages using the page and zoom controls.
+2. Check CryptoPro readiness and choose a certificate from **Available certificates**. Review the certificate details.
+3. Optionally enable **Add visible stamp**, enter a caption, choose its page, and drag or resize it. Numeric position and size controls are also available.
+4. Choose an **Output format**:
+   - **Separate signature (.sig)** produces a PDF and a separate signature file. Download and keep both files together; verification requires the exact downloaded PDF.
+   - **Embedded signature (.pdf)** produces a single signed PDF.
+5. Select **Sign PDF** and complete any native CryptoPro prompts. Enter a token PIN only in CryptoPro's native dialog.
+6. Wait for successful verification, then download the generated files. Changing the document, stamp, or certificate clears previous download links.
 
-**Acceptance:** an independent verifier accepts the downloaded pair; changing one PDF byte makes integrity verification fail; cancelled operations produce no success state.
+When a stamp is enabled, signing includes it in the final PDF. In separate-signature mode, use the downloaded PDF with its matching signature, rather than the original unstamped document.
 
-Implemented in the main workspace with automated binary, failure, cancellation and browser download checks. Independent verification of the new main-workspace downloads and real-token failure coverage remain manual acceptance checks; see [detached signing notes](docs/detached.md).
+### Export a stamp without signing
 
-### 4. Add the visible stamp editor
+Open a PDF, enable **Add visible stamp**, adjust its text and placement, then select **Export stamped PDF**. CryptoPro is not required. A visible stamp alone is not a cryptographic signature.
 
-- [x] Implement page selection, dragging, resizing, keyboard controls, and preview-to-PDF coordinate conversion.
-- [x] Add certificate-based text, custom captions, embedded Cyrillic fonts, and bounds validation.
-- [x] Export stamp-only PDFs and connect stamped output to detached signing.
-- [x] Freeze the final stamp before signing and invalidate prepared output when its settings change.
+### Supported documents and verification
 
-**Acceptance:** the downloaded stamp matches the preview on rotated and mixed-size pages; its detached signature validates against the exported PDF.
+PDFs must be no larger than 20 MiB and contain at most 500 pages. Password-protected PDFs are not supported. Editing or signing documents with detected existing signatures or certification restrictions is blocked; embedded signing also rejects XFA documents.
 
-Implementation and automated checks are documented in [stamp editor notes](docs/stamp.md). Independent verification of a stamped pair with a real certificate remains a manual acceptance check.
+The app verifies generated signatures through CryptoPro before offering downloads. Independent reader compatibility and real-token acceptance checks remain pending. This verification does not establish certificate trust, revocation status, or a trusted signing time. Before using signed output in a required workflow, check it with the recipient's verifier. See the [release notes](docs/release.md) for the current compatibility status.
 
-### 5. Deliver embedded PDF signatures
+### Privacy
 
-- [x] Productionize the proven byte-range and placeholder implementation with a visible or invisible signature field.
-- [x] Include the optional stamp in the prepared revision before signing.
-- [x] Handle placeholder sizing, CMS decoding, algorithm selection, and final output verification.
-- [x] Detect existing signatures and certification restrictions; reject unsupported cases with an explanation.
-- [x] Document the exact embedded signature format and current compatibility status in [embedded signing notes](docs/embedded.md).
-- [ ] Record independent GOST-capable reader verification for stamped and unstamped outputs.
+Documents, signatures, and certificate details are not persisted by the app. Preferences, including language, theme, output format, and the stamp caption, are saved in browser storage. Private keys remain under CryptoPro's control, and the app does not collect PINs. Native CryptoPro components may access network services for certificate validation, so fully offline signing is not guaranteed.
 
-**Acceptance:** supported PDFs open and verify in the agreed independent GOST-capable tools; tampering is detected; oversized signatures and unsupported inputs fail safely.
+### Troubleshooting
 
-### 6. Harden and release
+- **CryptoPro is unavailable:** check the native installation, browser extension, and site permissions, then select **Check CryptoPro** again.
+- **No certificate is listed:** ensure the certificate is valid, has a private key, and its token is connected.
+- **Signing fails or is cancelled:** check key access and native dialogs, dismiss any pending prompts, and retry. Failed operations do not provide signed output.
+- **The PDF is rejected:** check the file size, page count, encryption, and existing signatures against the limits above.
 
-- [x] Test binary conversions, coordinate transforms, byte-range coverage, placeholder overflow, and downloaded-file integrity with meaningful fixtures.
-- [x] Run browser integration tests with a mocked adapter for UI failures.
-- [ ] Complete manual tests with real CryptoPro and a test key/token; record independent verification for both modes with and without stamps.
-- [x] Cover Cyrillic names, large files, rotated/cropped pages, malformed PDFs, encrypted PDFs, and already signed documents with automated fixtures.
-- [x] Test keyboard controls, light/dark text contrast, canvas memory limits, and clearing document state on reset.
-- [ ] Complete manual accessibility and repeated-document memory profiling.
-- [x] Pin dependencies, package assets locally, configure a production content security policy, and exclude document data from telemetry and caches.
-- [ ] Confirm bridge redistribution terms, asset approval, and CSP compatibility with real native environments.
-- [x] Document installation, supported environments, troubleshooting, build commands, static deployment, limitations, and verification instructions.
+### Further documentation
 
-**Acceptance:** the published static build passes the recorded compatibility matrix and end-to-end signing checks for both output modes, with and without a stamp.
-
-**Release candidate:** hardening is implemented; publication and manual acceptance remain pending. On 2026-11-11, 14 Node tests and 18 Chrome integration tests passed, alongside lint and the production build. See [release and deployment notes](docs/release.md) for security headers, installation, the compatibility record, and remaining manual gates. Build output is in `dist/`; no deployment has been performed.
-
-### Later enhancements
-
-- [ ] Multiple signatures through incremental PDF updates, with permission and prior-signature validation.
-- [ ] Timestamping and longer-term validation profiles after evaluating service access, CORS, trust material, and offline limitations.
-- [ ] Batch detached signing with explicit document review and cancellation behavior.
-- [ ] Reusable stamp presets, localization, and optional user-supplied stamp artwork.
-- [ ] Verification of externally supplied PDF/signature pairs and embedded signatures beyond generated-output checks.
-
-## Technical references
-
-- [CryptoPro Browser plug-in usage](https://docs.cryptopro.ru/cades/plugin/plugin-usage)
-- [CryptoPro plug-in methods and constants](https://docs.cryptopro.ru/cades/plugin/plugin-methods)
-- [CryptoPro binary content encoding](https://docs.cryptopro.ru/cades/plugin/content-encoding)
-- [CryptoPro File API signing example](https://docs.cryptopro.ru/cades/plugin/plugin-samples/plugin-samples-fileapi)
-- [PDF.js project and documentation](https://mozilla.github.io/pdf.js/)
-- [pdf-lib documentation](https://pdf-lib.js.org/)
-
-These references guide implementation; library selection and signature-profile compatibility remain subject to the release verification checks.
-
-### Language
-
-Use **English / Русский** in the header to select the interface language. Russian is selected automatically for Russian browser preferences unless a language has been saved. The choice is saved across visits. Switching languages reloads the page; reopen any local document afterward. You can also use `?lang=ru` or `?lang=en` in the URL. Translations are maintained in `src/ru.json`; unknown third-party diagnostic messages remain in their original language.
+- [Project design, implementation roadmap, development commands, and layout](docs/project.md)
+- [Release, installation, deployment, and compatibility](docs/release.md)
+- [PDF preview](docs/preview.md)
+- [Visible stamps](docs/stamp.md)
+- [Separate signatures](docs/detached.md)
+- [Embedded signatures](docs/embedded.md)

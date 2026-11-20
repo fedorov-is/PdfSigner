@@ -198,7 +198,7 @@ test('local worker preview, navigation, zoom, reset, theme and mobile layout', a
     )
     .toBe(true);
   await page.screenshot({
-    path: 'artifacts/preview-mobile-dark.png',
+    path: 'test/artifacts/preview-mobile-dark.png',
     fullPage: true,
   });
   await page.locator('#reset').click();

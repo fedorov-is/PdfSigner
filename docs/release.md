@@ -26,12 +26,12 @@ Enter PINs only in the native dialog. Preview and stamp export need no native pl
 
 ## Static deployment
 
-Publish only `dist/` over HTTPS, including `vendor/`, `pdfjs/`, `fonts/`, and
+Publish only `src/build/dist/` over HTTPS, including `vendor/`, `pdfjs/`, `fonts/`, and
 `licenses/`. Relative asset paths support a subdirectory deployment. Never publish
 the repository, test outputs, or a directory containing user documents. No backend,
 analytics, service worker, or document cache is included.
 
-The build embeds a CSP in both HTML entry points and writes `dist/_headers` for
+The build embeds a CSP in both HTML entry points and writes `src/build/dist/_headers` for
 hosts supporting that format. On other hosts translate that file into equivalent
 HTTP response headers for every asset. `frame-ancestors` requires an HTTP header;
 the HTML meta policy alone cannot prevent framing. Vite preview serves these
@@ -71,7 +71,7 @@ Record exact versions and evidence; leave untested rows pending.
 
 | Environment / check                                                                     | Status / evidence                                                       |
 | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| Automated Chrome on this Windows workspace                                              | See test results recorded in README                                     |
+| Automated Chrome on this Windows workspace                                              | See test results recorded in [project notes](project.md)                |
 | OS, browser, CSP, native plug-in, extension versions                                    | Pending real-environment record                                         |
 | GOST algorithm OID, certificate type, key/token model                                   | Pending; never record a PIN or private key                              |
 | Detached, unstamped and stamped: independent verifier accepts exact downloaded pair     | Pending                                                                 |
