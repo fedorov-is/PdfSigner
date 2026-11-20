@@ -74,7 +74,9 @@ npm run dev
 
 ---
 
-﻿# PDF Signer
+# PDF Signer
+
+## English
 
 Sign PDF files locally in your browser using CryptoPro. Preview documents, add an optional visible stamp, and download either a PDF with a separate signature or a PDF with an embedded signature. The interface supports English and Russian, light and dark themes, and mobile layouts.
 
