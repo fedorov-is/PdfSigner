@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createDetached, deadline } from '../src/detached.js';
+import { createDetached } from '../src/features/signing/detached.js';
+import { deadline } from '../src/shared/lib/deadline.js';
 
 test('detached output preserves binary bytes, decodes DER and rejects tampering', async () => {
   const bytes = new Uint8Array([37, 0, 128, 255]);

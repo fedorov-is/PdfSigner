@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 import { cpSync, writeFileSync } from 'node:fs';
-import { csp, securityHeaders } from './src/scripts/security.mjs';
+import { csp, securityHeaders } from './scripts/security.mjs';
 export default defineConfig({
   root: 'src',
   publicDir: '../public',

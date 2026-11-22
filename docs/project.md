@@ -184,13 +184,16 @@ These references guide implementation; library selection and signature-profile c
 
 ### Language
 
-Use **English / Русский** in the header to select the interface language. Russian is selected automatically for Russian browser preferences unless a language has been saved. The choice is saved across visits. Switching languages reloads the page; reopen any local document afterward. You can also use `?lang=ru` or `?lang=en` in the URL. Translations are maintained in `src/ru.json`; unknown third-party diagnostic messages remain in their original language.
+Use **English / Русский** in the header to select the interface language. Russian is selected automatically for Russian browser preferences unless a language has been saved. The choice is saved across visits. Switching languages reloads the page; reopen any local document afterward. You can also use `?lang=ru` or `?lang=en` in the URL. Translations are maintained in `src/shared/i18n/ru.json`; unknown third-party diagnostic messages remain in their original language.
 
 ## Project layout
 
 - `docs/`: design, signing, and release documentation.
 - `public/`: static fonts, licenses, favicon, and the CryptoPro vendor bridge.
-- `src/`: application HTML, styles, modules, build scripts, and generated `build/dist/` output.
+- `src/`: application setup, feature modules, shared utilities, HTML, styles, and generated output.
+- `scripts/`: Node tooling and release security policy.
 - `test/`: unit tests, browser tests in `e2e/`, and generated `artifacts/` and `results/`.
+
+See [source architecture](architecture.md) for module responsibilities and dependency rules.
 
 Package and tool configuration remain at the repository root. GitHub workflows remain in `.github/`; npm dependencies and their local cache remain in `node_modules/`.

@@ -6,7 +6,7 @@ import {
   PDFString,
   PDFHexString,
 } from 'pdf-lib';
-import { fromBase64, toBase64 } from './binary.js';
+import { fromBase64, toBase64 } from '../../shared/lib/binary.js';
 import { coveredBytes, embedCms } from './pdf-signature.js';
 
 const name = PDFName.of;

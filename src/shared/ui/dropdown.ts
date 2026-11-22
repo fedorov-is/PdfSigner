@@ -1,4 +1,4 @@
-import { t } from './i18n.js';
+import { t } from '../i18n/index.js';
 // Keep the select as the source of truth for the existing application events.
 export function enhanceDropdowns() {
   for (const select of document.querySelectorAll('select')) {

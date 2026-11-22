@@ -1,5 +1,5 @@
-import { toBase64 } from './binary.js';
-import { deadline } from './detached.js';
+import { toBase64 } from '../../shared/lib/binary.js';
+import { deadline } from '../../shared/lib/deadline.js';
 
 export class CryptoPro {
   constructor(api) {
