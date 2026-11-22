@@ -1,4 +1,4 @@
-import { t } from './i18n.js';
+import { t } from '../../shared/i18n/index.js';
 import {
   PDFDocument,
   rgb,

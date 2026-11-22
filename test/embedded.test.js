@@ -7,9 +7,12 @@ import {
   createEmbedded,
   extractEmbedded,
   assertUnsigned,
-} from '../src/embedded.js';
-import { embedCms, coveredBytes } from '../src/pdf-signature.js';
-import { fromBase64, toBase64 } from '../src/binary.js';
+} from '../src/features/signing/embedded.js';
+import {
+  embedCms,
+  coveredBytes,
+} from '../src/features/signing/pdf-signature.js';
+import { fromBase64, toBase64 } from '../src/shared/lib/binary.js';
 
 async function input() {
   const pdf = await PDFDocument.create();

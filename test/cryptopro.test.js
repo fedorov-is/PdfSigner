@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CryptoPro } from '../src/cryptopro.js';
+import { CryptoPro } from '../src/features/signing/cryptopro.js';
 
 function nativeDouble({ deny = false } = {}) {
   const calls = [];
